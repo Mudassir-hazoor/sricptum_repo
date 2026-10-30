@@ -1,16 +1,19 @@
-import js from '@eslint/js';
-import astro from 'eslint-plugin-astro';
+import js from "@eslint/js";
+import astro from "eslint-plugin-astro";
 
 export default [
-  js.configs.recommended,
-  ...astro.configs['flat/recommended'],
   {
-    files: ['**/*.js', '**/*.mjs', '**/*.ts'],
+    ignores: [".astro/**", "dist/**", "node_modules/**", "coverage/**"],
+  },
+  js.configs.recommended,
+  ...astro.configs["flat/recommended"],
+  {
+    files: ["**/*.js", "**/*.mjs", "**/*.ts"],
     languageOptions: {
-      ecmaVersion: 'latest',
-      sourceType: 'module',
+      ecmaVersion: "latest",
+      sourceType: "module",
       globals: {
-        process: 'readonly',
+        process: "readonly",
       },
     },
   },

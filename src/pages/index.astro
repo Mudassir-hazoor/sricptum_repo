@@ -1,0 +1,678 @@
+---
+const tools = [
+  {
+    name: 'PDF to Word',
+    description: 'Turn a PDF into an editable document.',
+    format: 'PDF → DOCX',
+  },
+  {
+    name: 'Word to PDF',
+    description: 'Prepare a document for sharing or printing.',
+    format: 'DOCX → PDF',
+  },
+  {
+    name: 'Compress PDF',
+    description: 'Make a PDF easier to store and send.',
+    format: 'PDF → PDF',
+  },
+];
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="Scriptorium is a privacy-first document tools preview. Conversion features are coming soon."
+    />
+    <meta name="theme-color" content="#f6f4ef" />
+    <title>Scriptorium — A thoughtful space for your documents</title>
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="wordmark" href="#top" aria-label="Scriptorium home">
+        <span class="mark" aria-hidden="true">S</span>
+        <span>scriptorium</span>
+      </a>
+      <nav aria-label="Main navigation">
+        <a href="#tools">Tools</a>
+        <a href="#about">About</a>
+      </nav>
+      <a class="top-link" href="#tools">Explore the preview <span aria-hidden="true">↗</span></a>
+    </header>
+
+    <main id="top">
+      <section class="hero" aria-labelledby="hero-title">
+        <div class="hero-copy">
+          <p class="eyebrow"><span class="live-dot"></span> A calmer kind of document workspace</p>
+          <h1 id="hero-title">Make room for<br />the <em>important</em> work.</h1>
+          <p class="intro">
+            Scriptorium is a thoughtful home for the document tools you need, without the clutter.
+            This early preview is the beginning of something useful.
+          </p>
+          <a class="button" href="#tools">Take a look <span aria-hidden="true">↓</span></a>
+          <p class="hero-note">A small project, built with privacy in mind.</p>
+        </div>
+        <div class="hero-art" aria-hidden="true">
+          <div class="sun"></div>
+          <div class="paper paper-back"></div>
+          <div class="paper paper-front">
+            <div class="paper-label">YOUR WORKSPACE</div>
+            <div class="paper-line wide"></div>
+            <div class="paper-line"></div>
+            <div class="paper-line short"></div>
+            <div class="paper-stamp">S</div>
+          </div>
+          <div class="orbit orbit-one"></div>
+          <div class="orbit orbit-two"></div>
+          <span class="spark spark-one">✳</span>
+          <span class="spark spark-two">✳</span>
+        </div>
+      </section>
+
+      <section class="tools-section" id="tools" aria-labelledby="tools-title">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">THE TOOLBOX</p>
+            <h2 id="tools-title">A few useful things,<br />all in one place.</h2>
+          </div>
+          <p class="section-aside">
+            These are ideas for what’s ahead. Conversions aren’t available in this preview yet.
+          </p>
+        </div>
+        <div class="tool-grid">
+          {tools.map((tool, index) => (
+            <article class="tool-card">
+              <div class="card-top">
+                <span class="card-number">0{index + 1}</span>
+                <span class="card-format">{tool.format}</span>
+              </div>
+              <div class="file-icon" aria-hidden="true">
+                <span>{tool.format.split(' → ')[0]}</span>
+                <i></i>
+              </div>
+              <h3>{tool.name}</h3>
+              <p>{tool.description}</p>
+              <span class="coming-soon">Coming soon <span aria-hidden="true">↗</span></span>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section class="privacy" id="about" aria-labelledby="privacy-title">
+        <div class="privacy-icon" aria-hidden="true">✳</div>
+        <div>
+          <p class="eyebrow">A NOTE ON PRIVACY</p>
+          <h2 id="privacy-title">Your files stay yours.</h2>
+          <p>
+            This is a static preview. It doesn’t accept, upload, or process files. When document
+            tools arrive, privacy should be part of the design—not an afterthought.
+          </p>
+        </div>
+        <span class="privacy-word">PRIVATE<br />BY DESIGN</span>
+      </section>
+    </main>
+
+    <footer>
+      <a class="wordmark" href="#top"><span class="mark" aria-hidden="true">S</span><span>scriptorium</span></a>
+      <span>A work in progress, made with care.</span>
+      <a href="#top">Back to top ↑</a>
+    </footer>
+  </body>
+</html>
+
+<style>
+  :root {
+    color: #242721;
+    background: #f6f4ef;
+    font-family: Inter, "Segoe UI", sans-serif;
+    font-synthesis: none;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    --ink: #242721;
+    --muted: #74776e;
+    --green: #54684e;
+    --paper: #fffefa;
+    --line: #e4e1d8;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    margin: 0;
+  }
+
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  .topbar,
+  footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    max-width: 1240px;
+    margin: 0 auto;
+    padding: 24px 48px;
+  }
+
+  .wordmark {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    font-family: Georgia, serif;
+    font-size: 19px;
+    font-weight: 700;
+    letter-spacing: -0.7px;
+  }
+
+  .mark {
+    display: grid;
+    width: 30px;
+    height: 30px;
+    place-items: center;
+    border-radius: 50%;
+    background: var(--green);
+    color: white;
+    font-family: Georgia, serif;
+    font-size: 18px;
+    font-weight: 400;
+  }
+
+  nav {
+    display: flex;
+    gap: 36px;
+    color: var(--muted);
+    font-size: 13px;
+  }
+
+  nav a:hover,
+  footer a:hover {
+    color: var(--green);
+  }
+
+  .top-link {
+    color: var(--green);
+    font-size: 13px;
+    font-weight: 650;
+  }
+
+  .top-link span {
+    margin-left: 5px;
+  }
+
+  .hero {
+    position: relative;
+    display: grid;
+    grid-template-columns: 1fr 0.9fr;
+    align-items: center;
+    max-width: 1240px;
+    min-height: 570px;
+    margin: 0 auto;
+    padding: 50px 48px 80px;
+    overflow: hidden;
+  }
+
+  .hero-copy {
+    position: relative;
+    z-index: 1;
+    padding: 10px 0 0 30px;
+  }
+
+  .eyebrow {
+    margin: 0 0 22px;
+    color: var(--green);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1.7px;
+  }
+
+  .hero .eyebrow {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    color: #73796c;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.2px;
+  }
+
+  .live-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #91a47d;
+    box-shadow: 0 0 0 4px #91a47d24;
+  }
+
+  h1,
+  h2,
+  h3,
+  p {
+    margin-top: 0;
+  }
+
+  h1,
+  h2 {
+    font-family: Georgia, "Times New Roman", serif;
+    font-weight: 400;
+    letter-spacing: -2.7px;
+  }
+
+  h1 {
+    margin-bottom: 22px;
+    font-size: clamp(52px, 6vw, 76px);
+    line-height: 0.99;
+  }
+
+  h1 em {
+    color: var(--green);
+    font-weight: 400;
+  }
+
+  .intro {
+    max-width: 415px;
+    margin-bottom: 28px;
+    color: var(--muted);
+    font-size: 15px;
+    line-height: 1.8;
+  }
+
+  .button {
+    display: inline-flex;
+    align-items: center;
+    gap: 26px;
+    padding: 14px 19px;
+    border-radius: 4px;
+    background: var(--green);
+    color: white;
+    font-size: 13px;
+    transition: background 160ms ease, transform 160ms ease;
+  }
+
+  .button:hover {
+    transform: translateY(-2px);
+    background: #41543c;
+  }
+
+  .hero-note {
+    margin: 16px 0 0;
+    color: #92948c;
+    font-size: 11px;
+  }
+
+  .hero-art {
+    position: relative;
+    display: grid;
+    min-height: 410px;
+    place-items: center;
+  }
+
+  .sun {
+    position: absolute;
+    top: 24px;
+    right: 7%;
+    width: 260px;
+    height: 260px;
+    border-radius: 50%;
+    background: #e9e9d8;
+  }
+
+  .paper {
+    position: absolute;
+    width: 235px;
+    height: 310px;
+    border: 1px solid #e8e4d8;
+    border-radius: 4px;
+    box-shadow: 0 24px 65px #393b3212;
+  }
+
+  .paper-back {
+    transform: translate(22px, 5px) rotate(8deg);
+    background: #e7e6d9;
+  }
+
+  .paper-front {
+    padding: 37px 31px;
+    transform: translate(-12px, 2px) rotate(-5deg);
+    background: var(--paper);
+  }
+
+  .paper-label {
+    margin: 0 0 45px;
+    color: #8c9383;
+    font-size: 8px;
+    font-weight: 700;
+    letter-spacing: 1.4px;
+  }
+
+  .paper-line {
+    width: 72%;
+    height: 5px;
+    margin-bottom: 12px;
+    border-radius: 4px;
+    background: #e8e8df;
+  }
+
+  .paper-line.wide {
+    width: 100%;
+    height: 8px;
+    background: #64765d;
+  }
+
+  .paper-line.short {
+    width: 48%;
+  }
+
+  .paper-stamp {
+    display: grid;
+    width: 48px;
+    height: 48px;
+    margin-top: 53px;
+    place-items: center;
+    border: 1px solid #c9d0c0;
+    border-radius: 50%;
+    color: #70806a;
+    font-family: Georgia, serif;
+    font-size: 26px;
+  }
+
+  .orbit {
+    position: absolute;
+    width: 340px;
+    height: 340px;
+    border: 1px solid #dcded1;
+    border-radius: 50%;
+  }
+
+  .orbit-two {
+    width: 410px;
+    height: 410px;
+    border-color: #e5e3d9;
+  }
+
+  .spark {
+    position: absolute;
+    color: #829078;
+    font-size: 19px;
+  }
+
+  .spark-one {
+    top: 58px;
+    left: 18%;
+  }
+
+  .spark-two {
+    right: 13%;
+    bottom: 69px;
+    color: #bd9b69;
+    font-size: 13px;
+  }
+
+  .tools-section {
+    padding: 85px max(48px, calc((100% - 1120px) / 2)) 98px;
+    background: #eeede6;
+  }
+
+  .section-heading {
+    display: flex;
+    align-items: end;
+    justify-content: space-between;
+    gap: 30px;
+    margin-bottom: 38px;
+  }
+
+  .section-heading .eyebrow {
+    margin-bottom: 14px;
+  }
+
+  h2 {
+    margin-bottom: 0;
+    font-size: 42px;
+    line-height: 1.1;
+  }
+
+  .section-aside {
+    max-width: 290px;
+    margin-bottom: 3px;
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 1.7;
+  }
+
+  .tool-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+  }
+
+  .tool-card {
+    min-height: 250px;
+    padding: 21px;
+    border: 1px solid #e1dfd5;
+    border-radius: 5px;
+    background: #f8f7f2;
+  }
+
+  .card-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .card-number {
+    color: #96988e;
+    font-size: 10px;
+  }
+
+  .card-format {
+    padding: 6px 8px;
+    border-radius: 3px;
+    background: #eeefe7;
+    color: #64725d;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+  }
+
+  .file-icon {
+    position: relative;
+    display: grid;
+    width: 40px;
+    height: 48px;
+    margin: 25px 0 17px;
+    place-items: center;
+    border: 1px solid #d7dace;
+    border-radius: 3px;
+    background: #fffefa;
+    color: #78826d;
+    font-size: 8px;
+    font-weight: 700;
+  }
+
+  .file-icon i {
+    position: absolute;
+    right: 0;
+    bottom: 7px;
+    left: 0;
+    height: 1px;
+    background: #e4e5dc;
+  }
+
+  h3 {
+    margin-bottom: 7px;
+    font-family: Georgia, serif;
+    font-size: 18px;
+    font-weight: 400;
+  }
+
+  .tool-card p {
+    margin-bottom: 13px;
+    color: var(--muted);
+    font-size: 11px;
+  }
+
+  .coming-soon {
+    color: #75816d;
+    font-size: 10px;
+    font-weight: 650;
+  }
+
+  .privacy {
+    display: grid;
+    grid-template-columns: 70px 1fr auto;
+    align-items: center;
+    gap: 20px;
+    max-width: 1060px;
+    margin: 0 auto;
+    padding: 88px 48px;
+  }
+
+  .privacy-icon {
+    display: grid;
+    width: 52px;
+    height: 52px;
+    place-items: center;
+    border: 1px solid #dfe1d7;
+    border-radius: 50%;
+    color: var(--green);
+    font-size: 23px;
+  }
+
+  .privacy .eyebrow {
+    margin-bottom: 10px;
+  }
+
+  .privacy h2 {
+    margin-bottom: 10px;
+    font-size: 32px;
+  }
+
+  .privacy div p:last-child {
+    max-width: 510px;
+    margin-bottom: 0;
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 1.7;
+  }
+
+  .privacy-word {
+    color: #a4a69c;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 1.4px;
+    line-height: 1.8;
+    text-align: right;
+  }
+
+  footer {
+    border-top: 1px solid var(--line);
+    color: #898b82;
+    font-size: 10px;
+  }
+
+  footer .wordmark {
+    color: var(--ink);
+    font-size: 15px;
+  }
+
+  footer .mark {
+    width: 24px;
+    height: 24px;
+    font-size: 15px;
+  }
+
+  @media (max-width: 760px) {
+    .topbar,
+    footer {
+      padding-right: 22px;
+      padding-left: 22px;
+    }
+
+    nav {
+      gap: 18px;
+    }
+
+    .top-link {
+      display: none;
+    }
+
+    .hero {
+      grid-template-columns: 1fr;
+      padding: 54px 24px 35px;
+    }
+
+    .hero-copy {
+      padding: 0;
+    }
+
+    h1 {
+      font-size: clamp(52px, 12vw, 70px);
+    }
+
+    .hero-art {
+      min-height: 380px;
+      margin-top: 7px;
+    }
+
+    .tools-section {
+      padding: 67px 24px;
+    }
+
+    .section-heading {
+      display: block;
+    }
+
+    .section-aside {
+      margin-top: 19px;
+    }
+
+    .tool-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .tool-card {
+      min-height: 220px;
+    }
+
+    .privacy {
+      grid-template-columns: 50px 1fr;
+      gap: 14px;
+      padding: 65px 24px;
+    }
+
+    .privacy-icon {
+      width: 42px;
+      height: 42px;
+    }
+
+    .privacy-word {
+      display: none;
+    }
+
+    footer > span {
+      display: none;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+
+    *,
+    *::before,
+    *::after {
+      transition-duration: 0.01ms !important;
+    }
+  }
+</style>

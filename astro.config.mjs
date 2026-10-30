@@ -1,10 +1,10 @@
-import { defineConfig } from 'astro/config';
+import { defineConfig } from "astro/config";
 
 export default defineConfig({
-  site: 'https://example.github.io',
-  base: '/scriptorium',
-  output: 'static',
+  site: "https://mudassir-hazoor.github.io",
+  base: "/sricptum_repo",
+  output: "static",
   build: {
-    format: 'directory',
+    format: "directory",
   },
 });
