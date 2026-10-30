@@ -17,7 +17,8 @@ website does not upload documents or require an account.
 ### Conversion limits
 
 Office-to-PDF, PDF-to-Office and PowerPoint conversions carry text into a new
-document; they do not reproduce the source document’s exact design, layout,
+document with a consistent Scriptorium type style, clear headings and readable
+spacing. They do not reproduce the source document’s exact design, layout,
 fonts, images, charts, forms, or animations. PDF text extraction does not
 include OCR: scanned or image-only pages cannot be converted to editable text.
 PDF compression rasterises pages, which removes selectable text, forms, links,

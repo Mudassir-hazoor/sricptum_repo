@@ -38,7 +38,7 @@ export const TOOLS = {
     outputFormat: "DOCX",
     maxFiles: 1,
     detail:
-      "Text is extracted page by page. Scanned pages need OCR, which isn’t included.",
+      "Extracted text is formatted with a clear title, page headings and readable body text. Original page design, images and scanned text are not recovered.",
   },
   "word-to-pdf": {
     title: "Word to PDF",
@@ -47,7 +47,7 @@ export const TOOLS = {
     outputFormat: "PDF",
     maxFiles: 1,
     detail:
-      "Text is carried across; complex page layouts, fonts and embedded objects may differ.",
+      "Text is typeset in a clean, consistent PDF style. Original page layouts, fonts, images and embedded objects may differ.",
   },
   "powerpoint-to-word": {
     title: "PowerPoint to Word",
@@ -57,7 +57,7 @@ export const TOOLS = {
     outputFormat: "DOCX",
     maxFiles: 1,
     detail:
-      "Slide text and slide order are kept. Slide design, images, charts and animations are not.",
+      "Slide text and order are kept in a styled Word document with clear slide headings. Original slide design, images, charts and animations are not.",
   },
   "word-to-powerpoint": {
     title: "Word to PowerPoint",
@@ -76,7 +76,7 @@ export const TOOLS = {
     outputFormat: "PDF",
     maxFiles: 1,
     detail:
-      "Creates a text-first handout with one page per slide; slide visuals and animations are not reproduced.",
+      "Creates a typeset handout with one page per slide. Slide visuals, fonts, charts and animations are not reproduced.",
   },
   "pdf-to-powerpoint": {
     title: "PDF to PowerPoint",
@@ -85,7 +85,7 @@ export const TOOLS = {
     outputFormat: "PPTX",
     maxFiles: 1,
     detail:
-      "Creates one text-first slide per PDF page. Original page design and images are not recreated.",
+      "Creates one cleanly styled slide per PDF page. Original page design and images are not recreated.",
   },
   "compress-pdf": {
     title: "Compress PDF",

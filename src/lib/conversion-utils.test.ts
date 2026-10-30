@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import JSZip from "jszip";
 import {
   formatFileSize,
   getFileExtension,
@@ -9,6 +10,7 @@ import {
   splitTextIntoSlides,
   validateInputFiles,
 } from "./conversion-utils";
+import { createWordDocument } from "./word-document";
 
 function makeFile(name: string, size = 1): File {
   return { name, size } as File;
@@ -109,5 +111,22 @@ describe("document conversion helpers", () => {
   it("recognises extensions without depending on filename case", () => {
     expect(getFileExtension("PRESENTATION.PPTX")).toBe(".pptx");
     expect(getFileExtension("missing-extension")).toBe("");
+  });
+
+  it("creates a styled Word document with page breaks for source pages", async () => {
+    const blob = await createWordDocument("Quarterly report", [
+      { heading: "Page 1", text: "First page text." },
+      { heading: "Page 2", text: "Second page text." },
+    ]);
+    const archive = await JSZip.loadAsync(await blob.arrayBuffer());
+    const documentXml = await archive.file("word/document.xml")?.async("text");
+    const stylesXml = await archive.file("word/styles.xml")?.async("text");
+
+    expect(documentXml).toContain("SCRIPTORIUM");
+    expect(documentXml).toContain("First page text.");
+    expect(documentXml).toContain("Second page text.");
+    expect(documentXml).toContain("<w:pageBreakBefore");
+    expect(stylesXml).toContain("Arial");
+    expect(stylesXml).toContain("203B2D");
   });
 });

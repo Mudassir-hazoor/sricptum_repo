@@ -13,6 +13,7 @@ import {
   type OperationId,
   validateInputFiles,
 } from "../lib/conversion-utils";
+import { createWordDocument } from "../lib/word-document";
 
 type PdfDocumentProxy = import("pdfjs-dist").PDFDocumentProxy;
 
@@ -427,38 +428,6 @@ if (toolButtons.length > 0) {
     return slides;
   }
 
-  async function createWordDocument(
-    title: string,
-    sections: Array<{ heading?: string; text: string }>,
-  ): Promise<Blob> {
-    const { Document, HeadingLevel, Packer, Paragraph, TextRun } =
-      await import("docx");
-    const children = [
-      new Paragraph({ text: title, heading: HeadingLevel.TITLE }),
-    ];
-    for (const section of sections) {
-      if (section.heading) {
-        children.push(
-          new Paragraph({
-            text: section.heading,
-            heading: HeadingLevel.HEADING_1,
-          }),
-        );
-      }
-      for (const paragraph of section.text
-        .split(/\n{1,}/)
-        .filter((line) => line.trim())) {
-        children.push(
-          new Paragraph({
-            children: [new TextRun({ text: paragraph, size: 22 })],
-            spacing: { after: 140 },
-          }),
-        );
-      }
-    }
-    return Packer.toBlob(new Document({ sections: [{ children }] }));
-  }
-
   async function createTextPdf(
     title: string,
     sections: Array<{ heading?: string; text: string }>,
@@ -466,7 +435,7 @@ if (toolButtons.length > 0) {
     const { PDFDocument, PageSizes, StandardFonts, rgb } =
       await import("pdf-lib");
     const pdf = await PDFDocument.create();
-    const titleFont = await pdf.embedFont(StandardFonts.TimesRomanBold);
+    const titleFont = await pdf.embedFont(StandardFonts.HelveticaBold);
     const headingFont = await pdf.embedFont(StandardFonts.HelveticaBold);
     const bodyFont = await pdf.embedFont(StandardFonts.Helvetica);
     const [pageWidth, pageHeight] = PageSizes.A4;
@@ -577,13 +546,13 @@ if (toolButtons.length > 0) {
     };
 
     try {
-      drawWrappedText(title, titleFont, 22, rgb(0.17, 0.26, 0.2), 29, 12);
+      drawWrappedText(title, titleFont, 24, rgb(0.13, 0.23, 0.18), 32, 16);
       for (const section of sections) {
         if (section.heading) {
           drawWrappedText(
             section.heading,
             headingFont,
-            14,
+            15,
             rgb(0.23, 0.41, 0.29),
             20,
             5,
@@ -611,6 +580,19 @@ if (toolButtons.length > 0) {
     }
 
     pages.forEach((pageItem, index) => {
+      pageItem.drawText("SCRIPTORIUM  /  DOCUMENT CONVERSION", {
+        x: margin,
+        y: pageHeight - 27,
+        size: 7,
+        font: headingFont,
+        color: rgb(0.35, 0.47, 0.38),
+      });
+      pageItem.drawLine({
+        start: { x: margin, y: pageHeight - 37 },
+        end: { x: pageWidth - margin, y: pageHeight - 37 },
+        thickness: 0.8,
+        color: rgb(0.82, 0.86, 0.82),
+      });
       pageItem.drawLine({
         start: { x: margin, y: 33 },
         end: { x: pageWidth - margin, y: 33 },
@@ -760,7 +742,7 @@ if (toolButtons.length > 0) {
           blob: await createWordDocument(stem, sections),
           name: `${stem}-text.docx`,
           detail:
-            "Extracted text only. Original page design, images, tables and formatting are not preserved. Scanned pages require OCR.",
+            "Text is typeset with a title, page headings and readable body styling. Original page design, images and tables are not preserved; scanned pages require OCR.",
         };
       }
       case "word-to-pdf": {
@@ -771,7 +753,7 @@ if (toolButtons.length > 0) {
           blob: await createTextPdf(stem, [{ text }]),
           name: `${stem}.pdf`,
           detail:
-            "Text-only PDF. Original page layout, embedded images and formatting are not preserved.",
+            "Text is typeset in a clean PDF layout. Original page layout, embedded images and formatting are not preserved.",
         };
       }
       case "powerpoint-to-word": {
@@ -788,7 +770,7 @@ if (toolButtons.length > 0) {
           ),
           name: `${stem}-text.docx`,
           detail:
-            "Slide text and order are kept. Visual design, images, charts, notes and animations are not.",
+            "Slide text and order are kept in a styled Word document with clear slide headings. Visual design, images, charts, notes and animations are not.",
         };
       }
       case "word-to-powerpoint": {
@@ -804,7 +786,7 @@ if (toolButtons.length > 0) {
         return {
           blob: await savePresentation(stem, slides),
           name: `${stem}.pptx`,
-          detail: `${slides.length} text-first slides created. Original Word layout and embedded content are not included.`,
+          detail: `${slides.length} cleanly styled, editable slides created. Original Word layout and embedded content are not included.`,
         };
       }
       case "powerpoint-to-pdf": {
@@ -819,7 +801,7 @@ if (toolButtons.length > 0) {
           blob: await createTextPdf(stem, sections),
           name: `${stem}-text.pdf`,
           detail:
-            "Text-first PDF with one page per slide. Slide visuals, fonts, charts and animations are not reproduced.",
+            "A cleanly typeset PDF with one page per slide. Slide visuals, source fonts, charts and animations are not reproduced.",
         };
       }
       case "pdf-to-powerpoint": {
@@ -836,7 +818,7 @@ if (toolButtons.length > 0) {
         return {
           blob: await savePresentation(stem, slides),
           name: `${stem}.pptx`,
-          detail: `${slides.length} text-first slides created. PDF layout and images are not recreated.`,
+          detail: `${slides.length} cleanly styled, editable slides created. PDF layout and images are not recreated.`,
         };
       }
       case "compress-pdf": {
