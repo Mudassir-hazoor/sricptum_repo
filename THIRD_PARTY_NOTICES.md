@@ -1,5 +1,15 @@
 # Third-party notices
 
-This project uses public, open-source software and libraries. Please check the licenses of all bundled packages, browser engines, and conversion dependencies before redistribution or deployment.
+Scriptorium uses open-source browser libraries for document conversion:
 
-The core platform should be treated as a code sample and a starting point for an open-source document conversion project. Specific conversion engines or server packages may require their own licensing review depending on deployment and usage.
+- Astro — MIT
+- docx — MIT
+- JSZip — MIT
+- Mammoth — BSD-2-Clause
+- pdf-lib — MIT
+- PDF.js — Apache-2.0
+- PptxGenJS — MIT
+
+The `image-size` package is overridden to a patched 2.x release. Confirm the
+licenses and notices of all dependencies again before redistribution. The
+complete dependency tree is recorded in `package-lock.json`.

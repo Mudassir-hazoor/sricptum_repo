@@ -1,39 +1,60 @@
 # Scriptorium
 
-Scriptorium is a small, static preview of a calmer document-tools workspace.
-The current site is a landing page only: file uploads, document conversions,
-and server-side processing are not implemented.
+Scriptorium is a browser-based document workspace for everyday PDF, Word,
+PowerPoint and image tasks. Files are processed on the visitor’s device; the
+website does not upload documents or require an account.
 
-## View the site
+**Live website:** <https://mudassir-hazoor.github.io/sricptum_repo/>
 
-After GitHub Pages deployment is enabled, the public site will be available at:
+## Available tools
 
-<https://mudassir-hazoor.github.io/sricptum_repo/>
+- **PDF:** extract text into Word or PowerPoint, merge documents, extract
+  selected pages, export pages as PNG, or create an image-only compressed PDF.
+- **Word:** create a text-first PDF or an editable PowerPoint from a `.docx`.
+- **PowerPoint:** create a text-first PDF or a Word document from a `.pptx`.
+- **Images:** place PNG, JPEG or WebP images on pages in a PDF.
 
-The GitHub Actions workflow deploys the site whenever changes are pushed to
-`main`. In the repository settings, set **Pages → Build and deployment → Source**
-to **GitHub Actions**.
+### Conversion limits
 
-## Run locally
+Office-to-PDF, PDF-to-Office and PowerPoint conversions carry text into a new
+document; they do not reproduce the source document’s exact design, layout,
+fonts, images, charts, forms, or animations. PDF text extraction does not
+include OCR: scanned or image-only pages cannot be converted to editable text.
+PDF compression rasterises pages, which removes selectable text, forms, links,
+and other interactive or accessibility features. Review the source and output
+before relying on a converted document.
 
-Requires Node.js 22 or later.
+The site accepts `.pdf`, `.docx`, `.pptx`, `.png`, `.jpg`, `.jpeg` and `.webp`.
+Legacy `.doc` and `.ppt` files are not supported. Each file is limited to 30 MB
+and selected files together to 80 MB. Processing limits vary by tool and are
+shown in the workspace.
+
+## Develop locally
+
+Requires Node.js 24 or later and npm.
 
 ```powershell
 npm install
 npm run dev
 ```
 
-Open the local address printed by Astro, usually <http://localhost:4321>.
+Open the address printed by Astro, usually <http://localhost:4321>.
 
-To check the production build:
+Run the checks before publishing changes:
 
 ```powershell
 npm run build
+npm test
+npm run lint
+npm audit
 ```
 
-The static site is generated in `dist`.
+The static site is generated in `dist`. The `main` branch is deployed to
+GitHub Pages by `.github/workflows/deploy-pages.yml`.
 
 ## Privacy
 
-This preview is a static site. It does not accept, upload, or process files.
-Do not use it to submit sensitive documents.
+This is a static GitHub Pages website. Conversion runs in the browser; this
+project has no document-upload endpoint or server-side conversion service.
+Never close the page before downloading your result, and keep your original
+file until you have checked the conversion.

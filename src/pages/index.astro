@@ -1,21 +1,19 @@
 ---
-const tools = [
-  {
-    name: 'PDF to Word',
-    description: 'Turn a PDF into an editable document.',
-    format: 'PDF → DOCX',
-  },
-  {
-    name: 'Word to PDF',
-    description: 'Prepare a document for sharing or printing.',
-    format: 'DOCX → PDF',
-  },
-  {
-    name: 'Compress PDF',
-    description: 'Make a PDF easier to store and send.',
-    format: 'PDF → PDF',
-  },
-];
+import { TOOL_GROUPS, TOOLS } from "../lib/conversion-utils";
+
+const categoryIcons: Record<string, string> = {
+  "pdf-to-word": "T",
+  "pdf-to-powerpoint": "P",
+  "compress-pdf": "↓",
+  "merge-pdf": "+",
+  "split-pdf": "÷",
+  "pdf-to-images": "▧",
+  "word-to-pdf": "W",
+  "word-to-powerpoint": "P",
+  "powerpoint-to-word": "W",
+  "powerpoint-to-pdf": "P",
+  "images-to-pdf": "▧",
+};
 ---
 
 <!doctype html>
@@ -25,117 +23,453 @@ const tools = [
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta
       name="description"
-      content="Scriptorium is a privacy-first document tools preview. Conversion features are coming soon."
+      content="Convert, organise and export PDF, Word, PowerPoint and image files in your browser. Your files stay on your device."
     />
-    <meta name="theme-color" content="#f6f4ef" />
-    <title>Scriptorium — A thoughtful space for your documents</title>
+    <meta name="theme-color" content="#f5f7f5" />
+    <meta
+      property="og:title"
+      content="Scriptorium — Document tools, with care."
+    />
+    <meta
+      property="og:description"
+      content="Practical PDF, Word and PowerPoint tools. Process documents directly in your browser—no file uploads."
+    />
+    <title>Scriptorium — Document tools, with care</title>
   </head>
   <body>
     <header class="topbar">
-      <a class="wordmark" href="#top" aria-label="Scriptorium home">
-        <span class="mark" aria-hidden="true">S</span>
+      <a class="wordmark" href="#home" aria-label="Scriptorium home">
+        <span class="brand-mark" aria-hidden="true">
+          s
+        </span>
         <span>scriptorium</span>
       </a>
       <nav aria-label="Main navigation">
-        <a href="#tools">Tools</a>
-        <a href="#about">About</a>
+        <a href="#workspace">Tools</a>
+        <a href="#how-it-works">How it works</a>
+        <a href="#privacy">Privacy</a>
       </nav>
-      <a class="top-link" href="#tools">Explore the preview <span aria-hidden="true">↗</span></a>
+      <a class="header-button" href="#workspace">
+        Open the workspace
+        <svg viewBox="0 0 16 16" aria-hidden="true">
+          <path d="M3 8h10M8 3l5 5-5 5" />
+        </svg>
+      </a>
     </header>
 
-    <main id="top">
+    <main id="home">
       <section class="hero" aria-labelledby="hero-title">
         <div class="hero-copy">
-          <p class="eyebrow"><span class="live-dot"></span> A calmer kind of document workspace</p>
-          <h1 id="hero-title">Make room for<br />the <em>important</em> work.</h1>
-          <p class="intro">
-            Scriptorium is a thoughtful home for the document tools you need, without the clutter.
-            This early preview is the beginning of something useful.
+          <p class="eyebrow">
+            <span class="eyebrow-dot"></span> A better place to get documents
+            done
           </p>
-          <a class="button" href="#tools">Take a look <span aria-hidden="true">↓</span></a>
-          <p class="hero-note">A small project, built with privacy in mind.</p>
-        </div>
-        <div class="hero-art" aria-hidden="true">
-          <div class="sun"></div>
-          <div class="paper paper-back"></div>
-          <div class="paper paper-front">
-            <div class="paper-label">YOUR WORKSPACE</div>
-            <div class="paper-line wide"></div>
-            <div class="paper-line"></div>
-            <div class="paper-line short"></div>
-            <div class="paper-stamp">S</div>
-          </div>
-          <div class="orbit orbit-one"></div>
-          <div class="orbit orbit-two"></div>
-          <span class="spark spark-one">✳</span>
-          <span class="spark spark-two">✳</span>
-        </div>
-      </section>
-
-      <section class="tools-section" id="tools" aria-labelledby="tools-title">
-        <div class="section-heading">
-          <div>
-            <p class="eyebrow">THE TOOLBOX</p>
-            <h2 id="tools-title">A few useful things,<br />all in one place.</h2>
-          </div>
-          <p class="section-aside">
-            These are ideas for what’s ahead. Conversions aren’t available in this preview yet.
+          <h1 id="hero-title">
+            Document work,
+            <br />
+            <em>made simpler.</em>
+          </h1>
+          <p class="hero-summary">
+            Convert, combine and organise PDFs, Word documents, presentations
+            and images in one straightforward workspace.
           </p>
+          <div class="hero-actions">
+            <a class="primary-button" href="#workspace">
+              Explore document tools
+              <svg viewBox="0 0 16 16" aria-hidden="true">
+                <path d="M3 8h10M8 3l5 5-5 5" />
+              </svg>
+            </a>
+            <span class="hero-note">
+              No sign-up. Files are processed in your browser.
+            </span>
+          </div>
+          <div class="hero-proof" aria-label="Service details">
+            <span>
+              <span class="proof-icon">✓</span> Files stay on your device
+            </span>
+            <span>
+              <span class="proof-icon">✓</span> No account required
+            </span>
+            <span>
+              <span class="proof-icon">✓</span> Free to use
+            </span>
+          </div>
         </div>
-        <div class="tool-grid">
-          {tools.map((tool, index) => (
-            <article class="tool-card">
-              <div class="card-top">
-                <span class="card-number">0{index + 1}</span>
-                <span class="card-format">{tool.format}</span>
-              </div>
-              <div class="file-icon" aria-hidden="true">
-                <span>{tool.format.split(' → ')[0]}</span>
+        <div class="hero-visual" aria-hidden="true">
+          <div class="visual-glow"></div>
+          <div class="visual-card document-back">
+            <span class="doc-label">PRESENTATION</span>
+            <span class="doc-heading"></span>
+            <span class="doc-line"></span>
+            <span class="doc-line short"></span>
+            <span class="doc-block"></span>
+          </div>
+          <div class="visual-card document-front">
+            <div class="doc-toolbar">
+              <span></span>
+              <span></span>
+              <span></span>
+            </div>
+            <div class="doc-paper">
+              <span class="doc-label">QUARTERLY REPORT</span>
+              <span class="doc-heading"></span>
+              <span class="doc-line"></span>
+              <span class="doc-line"></span>
+              <span class="doc-line short"></span>
+              <span class="doc-chart">
                 <i></i>
-              </div>
-              <h3>{tool.name}</h3>
-              <p>{tool.description}</p>
-              <span class="coming-soon">Coming soon <span aria-hidden="true">↗</span></span>
-            </article>
-          ))}
+                <i></i>
+                <i></i>
+                <i></i>
+                <i></i>
+                <i></i>
+                <i></i>
+              </span>
+              <span class="doc-line"></span>
+              <span class="doc-line short"></span>
+            </div>
+          </div>
+          <span class="file-chip chip-pdf">
+            <span>PDF</span> Final-report.pdf
+          </span>
+          <span class="file-chip chip-docx">
+            <span>DOCX</span> Edited-report.docx
+          </span>
+          <span class="visual-caption">
+            One calm workspace. Your files stay yours.
+          </span>
         </div>
       </section>
 
-      <section class="privacy" id="about" aria-labelledby="privacy-title">
-        <div class="privacy-icon" aria-hidden="true">✳</div>
-        <div>
-          <p class="eyebrow">A NOTE ON PRIVACY</p>
-          <h2 id="privacy-title">Your files stay yours.</h2>
+      <section
+        class="workspace-section"
+        id="workspace"
+        aria-labelledby="workspace-section-title"
+      >
+        <div class="workspace-heading">
+          <div>
+            <p class="eyebrow section-eyebrow">THE SCRIPTORIUM WORKSPACE</p>
+            <h2 id="workspace-section-title">What would you like to do?</h2>
+            <p class="workspace-intro">
+              Choose a tool, add your file and download the result.
+            </p>
+          </div>
+          <span class="local-badge">
+            <span></span> Files stay on your device
+          </span>
+        </div>
+
+        <div class="workspace-shell">
+          <aside class="tool-sidebar" aria-label="Choose a document tool">
+            {TOOL_GROUPS.map((group) => (
+              <section
+                class="tool-group"
+                aria-labelledby={`group-${group.name.toLowerCase().replaceAll(" ", "-")}`}
+              >
+                <h3
+                  id={`group-${group.name.toLowerCase().replaceAll(" ", "-")}`}
+                >
+                  {group.name}
+                </h3>
+                <div class="tool-list">
+                  {group.ids.map((id) => {
+                    const tool = TOOLS[id];
+                    return (
+                      <button
+                        type="button"
+                        class={`tool-option${id === "pdf-to-word" ? " selected" : ""}`}
+                        data-tool={id}
+                        aria-pressed={id === "pdf-to-word" ? "true" : "false"}
+                      >
+                        <span class="tool-icon" aria-hidden="true">
+                          {categoryIcons[id]}
+                        </span>
+                        <span class="tool-name">{tool.title}</span>
+                        <svg
+                          class="tool-arrow"
+                          viewBox="0 0 16 16"
+                          aria-hidden="true"
+                        >
+                          <path d="M3 8h10M8 3l5 5-5 5" />
+                        </svg>
+                      </button>
+                    );
+                  })}
+                </div>
+              </section>
+            ))}
+          </aside>
+
+          <section class="work-area" aria-labelledby="workspace-title">
+            <div class="work-heading">
+              <div>
+                <p class="work-kicker">YOUR SELECTED TOOL</p>
+                <h3 id="workspace-title">PDF to Word</h3>
+                <p id="workspace-description" class="work-description"></p>
+              </div>
+              <span class="format-badge">
+                OUTPUT <strong id="output-format">DOCX</strong>
+              </span>
+            </div>
+
+            <div class="file-stage">
+              <div
+                class="drop-zone"
+                id="drop-zone"
+                role="group"
+                tabindex="0"
+                aria-label="Add a document to convert"
+                aria-describedby="drop-help"
+              >
+                <input
+                  class="visually-hidden"
+                  type="file"
+                  id="file-input"
+                  aria-label="Choose a document"
+                />
+                <span class="upload-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24">
+                    <path d="M12 16V4m0 0L7.5 8.5M12 4l4.5 4.5M5 15.5v3A1.5 1.5 0 0 0 6.5 20h11a1.5 1.5 0 0 0 1.5-1.5v-3" />
+                  </svg>
+                </span>
+                <h4 id="drop-title">Add .pdf files</h4>
+                <p id="drop-help">Up to 1 file · 30 MB maximum per file</p>
+                <button class="choose-button" id="select-files" type="button">
+                  Choose file
+                </button>
+                <p class="drop-support">or drag and drop here</p>
+              </div>
+              <div class="privacy-strip">
+                <svg viewBox="0 0 18 18" aria-hidden="true">
+                  <path d="M9 2 3.5 4v4.3c0 3.3 2.2 6.2 5.5 7.7 3.3-1.5 5.5-4.4 5.5-7.7V4L9 2Z" />
+                  <path d="m6.7 8.9 1.5 1.5 3.2-3.3" />
+                </svg>
+                Your documents stay on this device. They are never uploaded.
+              </div>
+
+              <ul class="file-list" id="file-list" aria-live="polite"></ul>
+
+              <div class="tool-settings" id="range-options" hidden>
+                <label for="page-range">Pages to extract</label>
+                <input
+                  type="text"
+                  id="page-range"
+                  value="1-3"
+                  inputmode="numeric"
+                  placeholder="For example: 1-3, 5"
+                  aria-describedby="range-help"
+                />
+                <p id="range-help">
+                  Enter page numbers or ascending ranges, such as 1-3, 5.
+                </p>
+              </div>
+
+              <fieldset
+                class="tool-settings compression-options"
+                id="compression-options"
+                hidden
+              >
+                <legend>Compression quality</legend>
+                <div class="quality-choices">
+                  <label>
+                    <input
+                      type="radio"
+                      name="compression-quality"
+                      value="standard"
+                    />{" "}
+                    Best clarity
+                  </label>
+                  <label>
+                    <input
+                      type="radio"
+                      name="compression-quality"
+                      value="balanced"
+                      checked
+                    />{" "}
+                    Balanced
+                  </label>
+                  <label>
+                    <input
+                      type="radio"
+                      name="compression-quality"
+                      value="compact"
+                    />{" "}
+                    Smaller file
+                  </label>
+                </div>
+                <p class="raster-warning">
+                  Compression converts pages into images. Text, links, forms and
+                  accessibility features are removed.
+                </p>
+                <label class="confirmation">
+                  <input type="checkbox" id="compression-confirmation" />I
+                  understand the compressed PDF will not have selectable text.
+                </label>
+              </fieldset>
+
+              <p class="conversion-detail" id="conversion-detail"></p>
+              <div class="conversion-controls">
+                <button
+                  class="convert-button"
+                  id="run-conversion"
+                  type="button"
+                >
+                  Convert to DOCX
+                  <svg viewBox="0 0 16 16" aria-hidden="true">
+                    <path d="M3 8h10M8 3l5 5-5 5" />
+                  </svg>
+                </button>
+                <span class="supported-format">
+                  Accepts <strong id="input-label">.pdf</strong>
+                </span>
+              </div>
+              <div class="progress-area">
+                <progress
+                  id="progress-bar"
+                  max="100"
+                  value="0"
+                  aria-label="Conversion progress"
+                ></progress>
+                <span id="progress-label">Files stay on this device</span>
+              </div>
+              <p
+                class="workspace-status"
+                id="workspace-status"
+                role="status"
+                aria-live="polite"
+              ></p>
+              <section
+                class="conversion-results"
+                id="conversion-results"
+                aria-label="Conversion result"
+                hidden
+              ></section>
+            </div>
+          </section>
+        </div>
+        <p class="workspace-limits">
+          Each file is limited to 30 MB and all selected files together to 80
+          MB. PDF text extraction does not include OCR.
+        </p>
+      </section>
+
+      <section
+        class="how-section"
+        id="how-it-works"
+        aria-labelledby="how-title"
+      >
+        <div class="how-intro">
+          <p class="eyebrow section-eyebrow">STRAIGHTFORWARD BY DESIGN</p>
+          <h2 id="how-title">
+            From file to finished.
+            <br />
+            <em>Without the fuss.</em>
+          </h2>
           <p>
-            This is a static preview. It doesn’t accept, upload, or process files. When document
-            tools arrive, privacy should be part of the design—not an afterthought.
+            Skip the account, complicated settings and unnecessary wait. Use a
+            tool and get back to your work.
           </p>
         </div>
-        <span class="privacy-word">PRIVATE<br />BY DESIGN</span>
+        <div class="steps">
+          <article class="step">
+            <span class="step-number">01</span>
+            <h3>Choose a tool</h3>
+            <p>
+              Select the conversion or PDF task you need. Format requirements
+              and limits are clearly listed.
+            </p>
+          </article>
+          <article class="step">
+            <span class="step-number">02</span>
+            <h3>Add your document</h3>
+            <p>
+              Select a file from your device. It stays in your browser
+              throughout processing.
+            </p>
+          </article>
+          <article class="step">
+            <span class="step-number">03</span>
+            <h3>Download the result</h3>
+            <p>
+              Check the conversion note, download the new file and keep the
+              original as a backup.
+            </p>
+          </article>
+        </div>
+      </section>
+
+      <section
+        class="privacy-section"
+        id="privacy"
+        aria-labelledby="privacy-title"
+      >
+        <div class="privacy-lock" aria-hidden="true">
+          <svg viewBox="0 0 24 24">
+            <path d="M6.5 10V7.5a5.5 5.5 0 0 1 11 0V10M5.5 10h13v11h-13zM12 14v3" />
+          </svg>
+        </div>
+        <div class="privacy-copy">
+          <p class="eyebrow">YOUR DOCUMENTS ARE PERSONAL</p>
+          <h2 id="privacy-title">Private by default.</h2>
+          <p>
+            Scriptorium runs document processing in your browser. Your files are
+            not sent to our server because there is no document-processing
+            server.
+          </p>
+        </div>
+        <div class="privacy-facts">
+          <span>
+            <i>01</i> Files are processed on your device
+          </span>
+          <span>
+            <i>02</i> No account or file upload
+          </span>
+          <span>
+            <i>03</i> Your original stays unchanged
+          </span>
+        </div>
       </section>
     </main>
 
-    <footer>
-      <a class="wordmark" href="#top"><span class="mark" aria-hidden="true">S</span><span>scriptorium</span></a>
-      <span>A work in progress, made with care.</span>
-      <a href="#top">Back to top ↑</a>
+    <footer class="footer">
+      <a class="wordmark" href="#home">
+        <span class="brand-mark" aria-hidden="true">
+          s
+        </span>
+        <span>scriptorium</span>
+      </a>
+      <span class="footer-note">
+        Considered document tools. No uploads, no account.
+      </span>
+      <a class="back-to-top" href="#home">
+        Back to top <span aria-hidden="true">↑</span>
+      </a>
+      <span class="copyright">© {new Date().getFullYear()} Scriptorium</span>
     </footer>
   </body>
 </html>
 
+<script>
+  import "../scripts/workspace";
+</script>
+
 <style>
   :root {
-    color: #242721;
-    background: #f6f4ef;
-    font-family: Inter, "Segoe UI", sans-serif;
+    font-family: "Segoe UI", "Helvetica Neue", sans-serif;
+    color: #23332d;
+    background: #fff;
     font-synthesis: none;
     text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
-    --ink: #242721;
-    --muted: #74776e;
-    --green: #54684e;
-    --paper: #fffefa;
-    --line: #e4e1d8;
+    --ink: #23332d;
+    --muted: #77827d;
+    --green: #27765f;
+    --green-dark: #205e4c;
+    --green-light: #edf5f0;
+    --line: #e8ede8;
+    --soft: #f5f7f5;
+    --white: #fff;
   }
 
   * {
@@ -144,10 +478,13 @@ const tools = [
 
   html {
     scroll-behavior: smooth;
+    scroll-padding-top: 85px;
   }
 
   body {
     margin: 0;
+    min-width: 0;
+    background: #fff;
   }
 
   a {
@@ -155,108 +492,172 @@ const tools = [
     text-decoration: none;
   }
 
+  button,
+  input {
+    font: inherit;
+  }
+
+  button,
+  a {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  button:focus-visible,
+  a:focus-visible,
+  [tabindex]:focus-visible,
+  input:focus-visible {
+    outline: 3px solid #70ae93;
+    outline-offset: 3px;
+  }
+
   .topbar,
-  footer {
+  .footer {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    max-width: 1240px;
+    max-width: 1280px;
     margin: 0 auto;
-    padding: 24px 48px;
+    padding: 18px 56px;
+  }
+
+  .topbar {
+    justify-content: space-between;
+    min-height: 76px;
+    background: #fff;
   }
 
   .wordmark {
     display: inline-flex;
     align-items: center;
     gap: 10px;
-    font-family: Georgia, serif;
+    font-family: Georgia, "Times New Roman", serif;
     font-size: 19px;
     font-weight: 700;
-    letter-spacing: -0.7px;
+    letter-spacing: -0.5px;
   }
 
-  .mark {
+  .brand-mark {
     display: grid;
-    width: 30px;
-    height: 30px;
+    width: 31px;
+    height: 31px;
     place-items: center;
-    border-radius: 50%;
+    border-radius: 9px;
     background: var(--green);
-    color: white;
+    color: #fff;
     font-family: Georgia, serif;
-    font-size: 18px;
+    font-size: 22px;
     font-weight: 400;
   }
 
   nav {
     display: flex;
-    gap: 36px;
-    color: var(--muted);
-    font-size: 13px;
+    align-items: center;
+    gap: 34px;
+    color: #56665e;
+    font-size: 12px;
+  }
+
+  nav a,
+  .back-to-top {
+    transition: color 150ms ease;
   }
 
   nav a:hover,
-  footer a:hover {
+  .back-to-top:hover {
     color: var(--green);
   }
 
-  .top-link {
-    color: var(--green);
-    font-size: 13px;
+  .header-button,
+  .primary-button,
+  .convert-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 11px;
+    border: 0;
+    border-radius: 5px;
+    background: var(--green);
+    color: #fff;
     font-weight: 650;
+    transition:
+      background 150ms ease,
+      transform 150ms ease;
   }
 
-  .top-link span {
-    margin-left: 5px;
+  .header-button {
+    padding: 11px 15px;
+    font-size: 11px;
+  }
+
+  .header-button:hover,
+  .primary-button:hover,
+  .convert-button:hover:not(:disabled) {
+    transform: translateY(-1px);
+    background: var(--green-dark);
+  }
+
+  .header-button svg,
+  .primary-button svg,
+  .convert-button svg,
+  .tool-arrow {
+    width: 15px;
+    height: 15px;
+    fill: none;
+    stroke: currentColor;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 1.5;
   }
 
   .hero {
-    position: relative;
     display: grid;
-    grid-template-columns: 1fr 0.9fr;
+    grid-template-columns: 1.08fr 0.92fr;
     align-items: center;
-    max-width: 1240px;
-    min-height: 570px;
+    gap: 36px;
+    max-width: 1280px;
+    min-height: 498px;
     margin: 0 auto;
-    padding: 50px 48px 80px;
+    padding: 48px 56px 66px;
     overflow: hidden;
   }
 
   .hero-copy {
     position: relative;
     z-index: 1;
-    padding: 10px 0 0 30px;
+    padding: 4px 0 0;
   }
 
   .eyebrow {
-    margin: 0 0 22px;
+    margin: 0;
     color: var(--green);
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 1.7px;
+    font-size: 9px;
+    font-weight: 750;
+    letter-spacing: 1.55px;
+    line-height: 1.5;
   }
 
-  .hero .eyebrow {
+  .hero-copy > .eyebrow {
     display: flex;
     align-items: center;
-    gap: 9px;
-    color: #73796c;
+    gap: 8px;
+    color: #64746a;
     font-size: 11px;
-    font-weight: 500;
-    letter-spacing: 0.2px;
+    font-weight: 600;
+    letter-spacing: 0.15px;
   }
 
-  .live-dot {
+  .eyebrow-dot {
     width: 7px;
     height: 7px;
+    flex: 0 0 7px;
     border-radius: 50%;
-    background: #91a47d;
-    box-shadow: 0 0 0 4px #91a47d24;
+    background: #62a77d;
+    box-shadow: 0 0 0 4px #62a77d20;
   }
 
   h1,
   h2,
   h3,
+  h4,
   p {
     margin-top: 0;
   }
@@ -265,413 +666,1326 @@ const tools = [
   h2 {
     font-family: Georgia, "Times New Roman", serif;
     font-weight: 400;
-    letter-spacing: -2.7px;
+    letter-spacing: -2px;
   }
 
   h1 {
-    margin-bottom: 22px;
-    font-size: clamp(52px, 6vw, 76px);
-    line-height: 0.99;
+    max-width: 650px;
+    margin: 21px 0 17px;
+    font-size: clamp(46px, 5.5vw, 68px);
+    line-height: 1.045;
   }
 
-  h1 em {
+  h1 em,
+  .how-intro h2 em {
     color: var(--green);
     font-weight: 400;
   }
 
-  .intro {
-    max-width: 415px;
-    margin-bottom: 28px;
-    color: var(--muted);
-    font-size: 15px;
+  .hero-summary {
+    max-width: 482px;
+    margin-bottom: 23px;
+    color: #697670;
+    font-size: 14px;
     line-height: 1.8;
   }
 
-  .button {
-    display: inline-flex;
-    align-items: center;
-    gap: 26px;
-    padding: 14px 19px;
-    border-radius: 4px;
-    background: var(--green);
-    color: white;
-    font-size: 13px;
-    transition: background 160ms ease, transform 160ms ease;
-  }
-
-  .button:hover {
-    transform: translateY(-2px);
-    background: #41543c;
-  }
-
-  .hero-note {
-    margin: 16px 0 0;
-    color: #92948c;
-    font-size: 11px;
-  }
-
-  .hero-art {
-    position: relative;
-    display: grid;
-    min-height: 410px;
-    place-items: center;
-  }
-
-  .sun {
-    position: absolute;
-    top: 24px;
-    right: 7%;
-    width: 260px;
-    height: 260px;
-    border-radius: 50%;
-    background: #e9e9d8;
-  }
-
-  .paper {
-    position: absolute;
-    width: 235px;
-    height: 310px;
-    border: 1px solid #e8e4d8;
-    border-radius: 4px;
-    box-shadow: 0 24px 65px #393b3212;
-  }
-
-  .paper-back {
-    transform: translate(22px, 5px) rotate(8deg);
-    background: #e7e6d9;
-  }
-
-  .paper-front {
-    padding: 37px 31px;
-    transform: translate(-12px, 2px) rotate(-5deg);
-    background: var(--paper);
-  }
-
-  .paper-label {
-    margin: 0 0 45px;
-    color: #8c9383;
-    font-size: 8px;
-    font-weight: 700;
-    letter-spacing: 1.4px;
-  }
-
-  .paper-line {
-    width: 72%;
-    height: 5px;
-    margin-bottom: 12px;
-    border-radius: 4px;
-    background: #e8e8df;
-  }
-
-  .paper-line.wide {
-    width: 100%;
-    height: 8px;
-    background: #64765d;
-  }
-
-  .paper-line.short {
-    width: 48%;
-  }
-
-  .paper-stamp {
-    display: grid;
-    width: 48px;
-    height: 48px;
-    margin-top: 53px;
-    place-items: center;
-    border: 1px solid #c9d0c0;
-    border-radius: 50%;
-    color: #70806a;
-    font-family: Georgia, serif;
-    font-size: 26px;
-  }
-
-  .orbit {
-    position: absolute;
-    width: 340px;
-    height: 340px;
-    border: 1px solid #dcded1;
-    border-radius: 50%;
-  }
-
-  .orbit-two {
-    width: 410px;
-    height: 410px;
-    border-color: #e5e3d9;
-  }
-
-  .spark {
-    position: absolute;
-    color: #829078;
-    font-size: 19px;
-  }
-
-  .spark-one {
-    top: 58px;
-    left: 18%;
-  }
-
-  .spark-two {
-    right: 13%;
-    bottom: 69px;
-    color: #bd9b69;
-    font-size: 13px;
-  }
-
-  .tools-section {
-    padding: 85px max(48px, calc((100% - 1120px) / 2)) 98px;
-    background: #eeede6;
-  }
-
-  .section-heading {
+  .hero-actions {
     display: flex;
-    align-items: end;
-    justify-content: space-between;
-    gap: 30px;
-    margin-bottom: 38px;
-  }
-
-  .section-heading .eyebrow {
-    margin-bottom: 14px;
-  }
-
-  h2 {
-    margin-bottom: 0;
-    font-size: 42px;
-    line-height: 1.1;
-  }
-
-  .section-aside {
-    max-width: 290px;
-    margin-bottom: 3px;
-    color: var(--muted);
-    font-size: 12px;
-    line-height: 1.7;
-  }
-
-  .tool-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    flex-wrap: wrap;
+    align-items: center;
     gap: 16px;
   }
 
-  .tool-card {
-    min-height: 250px;
-    padding: 21px;
-    border: 1px solid #e1dfd5;
-    border-radius: 5px;
-    background: #f8f7f2;
+  .primary-button {
+    min-height: 45px;
+    padding: 0 16px;
+    font-size: 11px;
   }
 
-  .card-top {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-  }
-
-  .card-number {
-    color: #96988e;
+  .hero-note {
+    margin: 0;
+    color: #858f89;
     font-size: 10px;
   }
 
-  .card-format {
-    padding: 6px 8px;
-    border-radius: 3px;
-    background: #eeefe7;
-    color: #64725d;
-    font-size: 9px;
-    font-weight: 700;
-    letter-spacing: 0.3px;
+  .hero-proof {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px 22px;
+    margin-top: 33px;
+    color: #586860;
+    font-size: 10px;
   }
 
-  .file-icon {
+  .proof-icon {
+    display: inline-grid;
+    width: 15px;
+    height: 15px;
+    margin-right: 5px;
+    place-items: center;
+    border: 1px solid #cfe0d4;
+    border-radius: 50%;
+    color: #398063;
+    font-size: 9px;
+  }
+
+  .hero-visual {
     position: relative;
     display: grid;
-    width: 40px;
-    height: 48px;
-    margin: 25px 0 17px;
+    min-width: 0;
+    min-height: 365px;
     place-items: center;
-    border: 1px solid #d7dace;
-    border-radius: 3px;
-    background: #fffefa;
-    color: #78826d;
-    font-size: 8px;
-    font-weight: 700;
   }
 
-  .file-icon i {
+  .visual-glow {
+    position: absolute;
+    width: 320px;
+    height: 320px;
+    border-radius: 50%;
+    background: radial-gradient(
+      circle,
+      #e6f0e9 0,
+      #f1f5ef 56%,
+      #f7f8f4 74%,
+      transparent 75%
+    );
+  }
+
+  .visual-card {
+    position: absolute;
+    width: 222px;
+    height: 278px;
+    overflow: hidden;
+    border: 1px solid #e6ebe4;
+    border-radius: 8px;
+    box-shadow: 0 18px 55px #18352b13;
+  }
+
+  .document-back {
+    z-index: 1;
+    padding: 24px;
+    transform: translate(47px, 5px) rotate(7deg);
+    background: #f2f4ec;
+  }
+
+  .document-front {
+    z-index: 2;
+    transform: translate(-18px, 4px) rotate(-4deg);
+    background: #fff;
+  }
+
+  .doc-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    height: 23px;
+    padding: 0 9px;
+    border-bottom: 1px solid #edf0eb;
+    background: #fbfcfa;
+  }
+
+  .doc-toolbar span {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: #ccd9cb;
+  }
+
+  .doc-paper {
+    padding: 21px 23px;
+  }
+
+  .doc-label {
+    display: block;
+    margin-bottom: 23px;
+    color: #7d8c7d;
+    font-size: 6px;
+    font-weight: 750;
+    letter-spacing: 1.1px;
+  }
+
+  .doc-heading,
+  .doc-line {
+    display: block;
+    width: 100%;
+    height: 4px;
+    margin-bottom: 8px;
+    border-radius: 4px;
+    background: #e7ebe4;
+  }
+
+  .doc-heading {
+    width: 78%;
+    height: 7px;
+    margin-bottom: 13px;
+    background: #47745b;
+  }
+
+  .doc-line.short {
+    width: 58%;
+  }
+
+  .doc-chart {
+    display: flex;
+    align-items: end;
+    gap: 5px;
+    height: 67px;
+    margin: 16px 0;
+    padding: 10px;
+    border: 1px solid #eff1eb;
+    border-radius: 4px;
+    background: #f8faf6;
+  }
+
+  .doc-chart i {
+    flex: 1;
+    border-radius: 2px 2px 0 0;
+    background: #8eb29a;
+  }
+
+  .doc-chart i:nth-child(1),
+  .doc-chart i:nth-child(5) {
+    height: 38%;
+  }
+
+  .doc-chart i:nth-child(2),
+  .doc-chart i:nth-child(7) {
+    height: 60%;
+  }
+
+  .doc-chart i:nth-child(3),
+  .doc-chart i:nth-child(6) {
+    height: 48%;
+  }
+
+  .doc-chart i:nth-child(4) {
+    height: 83%;
+    background: #4a8061;
+  }
+
+  .document-back .doc-label {
+    margin-bottom: 34px;
+  }
+
+  .document-back .doc-block {
+    display: block;
+    width: 100%;
+    height: 87px;
+    margin-top: 18px;
+    border-radius: 5px;
+    background: linear-gradient(135deg, #dce8da 0 48%, #e8ede1 48%);
+  }
+
+  .file-chip {
+    position: absolute;
+    z-index: 3;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 11px 8px 8px;
+    border: 1px solid #e7ece7;
+    border-radius: 6px;
+    background: #fff;
+    box-shadow: 0 6px 24px #1c37280c;
+    color: #58675e;
+    font-size: 8px;
+  }
+
+  .file-chip > span {
+    padding: 5px 5px;
+    border-radius: 3px;
+    background: #edf4ed;
+    color: #3b7756;
+    font-size: 7px;
+    font-weight: 800;
+  }
+
+  .chip-pdf {
+    top: 65px;
+    right: -1px;
+  }
+
+  .chip-docx {
+    bottom: 59px;
+    left: -9px;
+  }
+
+  .visual-caption {
     position: absolute;
     right: 0;
-    bottom: 7px;
-    left: 0;
-    height: 1px;
-    background: #e4e5dc;
+    bottom: 13px;
+    color: #77837b;
+    font-size: 9px;
   }
 
-  h3 {
-    margin-bottom: 7px;
-    font-family: Georgia, serif;
-    font-size: 18px;
-    font-weight: 400;
+  .workspace-section {
+    padding: 67px max(34px, calc((100% - 1150px) / 2)) 70px;
+    border-top: 1px solid #edf0ed;
+    background: var(--soft);
   }
 
-  .tool-card p {
-    margin-bottom: 13px;
+  .workspace-heading {
+    display: flex;
+    align-items: end;
+    justify-content: space-between;
+    gap: 22px;
+    margin-bottom: 22px;
+  }
+
+  .section-eyebrow {
+    margin-bottom: 11px;
+  }
+
+  h2 {
+    margin-bottom: 8px;
+    font-size: 37px;
+    line-height: 1.15;
+  }
+
+  .workspace-intro {
+    margin: 0;
     color: var(--muted);
     font-size: 11px;
   }
 
-  .coming-soon {
-    color: #75816d;
+  .local-badge {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 7px;
+    padding: 8px 10px;
+    border: 1px solid #dfebe1;
+    border-radius: 5px;
+    background: #f9fcf8;
+    color: #587160;
+    font-size: 9px;
+  }
+
+  .local-badge span {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #55a276;
+  }
+
+  .workspace-shell {
+    display: grid;
+    grid-template-columns: 252px minmax(0, 1fr);
+    min-height: 675px;
+    overflow: hidden;
+    border: 1px solid #e5eae5;
+    border-radius: 8px;
+    background: #fff;
+    box-shadow: 0 10px 38px #233c2c08;
+  }
+
+  .tool-sidebar {
+    padding: 19px 13px 20px;
+    border-right: 1px solid #e9ede9;
+    background: #fcfdfc;
+  }
+
+  .tool-group + .tool-group {
+    margin-top: 23px;
+  }
+
+  .tool-group h3 {
+    margin: 0 0 8px 9px;
+    color: #8a948e;
+    font-size: 8px;
+    font-weight: 750;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+
+  .tool-list {
+    display: grid;
+    gap: 2px;
+  }
+
+  .tool-option {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    width: 100%;
+    min-height: 34px;
+    padding: 6px 8px;
+    border: 0;
+    border-radius: 4px;
+    background: transparent;
+    color: #58665f;
+    cursor: pointer;
+    text-align: left;
+    transition:
+      background 130ms ease,
+      color 130ms ease;
+  }
+
+  .tool-option:hover {
+    background: #f0f4f0;
+  }
+
+  .tool-option.selected {
+    background: #eaf3ec;
+    color: #276648;
+  }
+
+  .tool-option:disabled {
+    cursor: wait;
+    opacity: 0.65;
+  }
+
+  .tool-icon {
+    display: grid;
+    width: 20px;
+    height: 20px;
+    flex: 0 0 20px;
+    place-items: center;
+    border: 1px solid #e6ebe4;
+    border-radius: 4px;
+    background: #fff;
+    color: #547462;
+    font-size: 8px;
+    font-weight: 750;
+  }
+
+  .tool-name {
+    flex: 1;
     font-size: 10px;
+    font-weight: 550;
+  }
+
+  .tool-arrow {
+    width: 12px;
+    height: 12px;
+    color: #a4aea7;
+    opacity: 0;
+    transition: opacity 130ms ease;
+  }
+
+  .tool-option.selected .tool-arrow,
+  .tool-option:hover .tool-arrow,
+  .tool-option:focus-visible .tool-arrow {
+    opacity: 1;
+  }
+
+  .work-area {
+    min-width: 0;
+    padding: 25px 27px 22px;
+  }
+
+  .work-heading {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 18px;
+  }
+
+  .work-kicker {
+    margin: 0 0 7px;
+    color: #87938a;
+    font-size: 8px;
+    font-weight: 750;
+    letter-spacing: 1px;
+  }
+
+  .work-heading h3 {
+    margin: 0 0 6px;
+    font-family: Georgia, serif;
+    font-size: 23px;
+    font-weight: 400;
+    letter-spacing: -0.5px;
+  }
+
+  .work-description {
+    max-width: 540px;
+    margin: 0;
+    color: #7b8780;
+    font-size: 10px;
+    line-height: 1.65;
+  }
+
+  .format-badge {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    flex: 0 0 auto;
+    padding: 7px 8px;
+    border: 1px solid #e8ede6;
+    border-radius: 4px;
+    color: #8a958c;
+    font-size: 7px;
+    font-weight: 750;
+    letter-spacing: 0.7px;
+  }
+
+  .format-badge strong {
+    color: #51745c;
+    font-size: 9px;
+    letter-spacing: 0;
+  }
+
+  .file-stage {
+    padding: 15px;
+    border: 1px solid #ebefeb;
+    border-radius: 6px;
+    background: #fdfefd;
+  }
+
+  .drop-zone {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 208px;
+    padding: 20px 15px;
+    border: 1px dashed #c9d7ca;
+    border-radius: 5px;
+    background: #fbfdfb;
+    text-align: center;
+    transition:
+      background 140ms ease,
+      border-color 140ms ease;
+  }
+
+  .drop-zone.dragging {
+    border-color: #347b5c;
+    background: #f0f7f0;
+  }
+
+  .upload-icon {
+    display: grid;
+    width: 39px;
+    height: 39px;
+    margin-bottom: 11px;
+    place-items: center;
+    border: 1px solid #e2ebe2;
+    border-radius: 9px;
+    background: #fff;
+    color: #477c5c;
+  }
+
+  .upload-icon svg {
+    width: 19px;
+    height: 19px;
+    fill: none;
+    stroke: currentColor;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 1.5;
+  }
+
+  .drop-zone h4 {
+    margin: 0 0 5px;
+    font-size: 12px;
     font-weight: 650;
   }
 
-  .privacy {
-    display: grid;
-    grid-template-columns: 70px 1fr auto;
-    align-items: center;
-    gap: 20px;
-    max-width: 1060px;
-    margin: 0 auto;
-    padding: 88px 48px;
-  }
-
-  .privacy-icon {
-    display: grid;
-    width: 52px;
-    height: 52px;
-    place-items: center;
-    border: 1px solid #dfe1d7;
-    border-radius: 50%;
-    color: var(--green);
-    font-size: 23px;
-  }
-
-  .privacy .eyebrow {
-    margin-bottom: 10px;
-  }
-
-  .privacy h2 {
-    margin-bottom: 10px;
-    font-size: 32px;
-  }
-
-  .privacy div p:last-child {
-    max-width: 510px;
-    margin-bottom: 0;
-    color: var(--muted);
-    font-size: 12px;
-    line-height: 1.7;
-  }
-
-  .privacy-word {
-    color: #a4a69c;
+  .drop-zone > p {
+    margin: 0 0 11px;
+    color: #87918a;
     font-size: 9px;
-    font-weight: 700;
-    letter-spacing: 1.4px;
-    line-height: 1.8;
-    text-align: right;
   }
 
-  footer {
-    border-top: 1px solid var(--line);
-    color: #898b82;
+  .choose-button {
+    padding: 8px 12px;
+    border: 1px solid #dfe8df;
+    border-radius: 4px;
+    background: white;
+    color: #3b7050;
+    cursor: pointer;
+    font-size: 9px;
+    font-weight: 650;
+    transition:
+      border-color 140ms ease,
+      background 140ms ease;
+  }
+
+  .choose-button:hover {
+    border-color: #acc8b0;
+    background: #f8fbf8;
+  }
+
+  .drop-zone > .drop-support {
+    margin: 9px 0 0;
+    color: #9aa39c;
+    font-size: 8px;
+  }
+
+  .privacy-strip {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    min-height: 36px;
+    padding: 7px 2px;
+    color: #68806e;
+    font-size: 9px;
+  }
+
+  .privacy-strip svg,
+  .privacy-lock svg {
+    width: 15px;
+    height: 15px;
+    flex: 0 0 auto;
+    fill: none;
+    stroke: currentColor;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 1.4;
+  }
+
+  .visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    clip-path: inset(50%);
+  }
+
+  .file-list {
+    display: grid;
+    gap: 6px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .file-list:empty {
+    display: none;
+  }
+
+  .file-list li {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    min-width: 0;
+    padding: 9px 10px;
+    border: 1px solid #e8ede8;
+    border-radius: 4px;
+    background: white;
+    color: #53625a;
+    font-size: 9px;
+  }
+
+  .file-list li[draggable="true"] {
+    cursor: grab;
+  }
+
+  .file-name {
+    overflow: hidden;
+    font-weight: 550;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .file-size {
+    flex: 0 0 auto;
+    color: #8c958f;
+  }
+
+  .tool-settings {
+    display: grid;
+    gap: 8px;
+    margin-top: 13px;
+    padding: 12px;
+    border: 1px solid #e8ede8;
+    border-radius: 4px;
+    background: #fff;
+  }
+
+  .tool-settings[hidden],
+  .conversion-results[hidden] {
+    display: none;
+  }
+
+  .tool-settings > label,
+  .tool-settings legend {
+    color: #506159;
+    font-size: 9px;
+    font-weight: 650;
+  }
+
+  .tool-settings > input[type="text"] {
+    width: 100%;
+    max-width: 260px;
+    padding: 9px 10px;
+    border: 1px solid #dce4dc;
+    border-radius: 4px;
+    color: var(--ink);
+    font-size: 11px;
+  }
+
+  .tool-settings > p {
+    margin: 0;
+    color: #7c8980;
+    font-size: 8px;
+    line-height: 1.65;
+  }
+
+  .compression-options {
+    min-width: 0;
+  }
+
+  .compression-options legend {
+    padding: 0 4px;
+  }
+
+  .quality-choices {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 17px;
+  }
+
+  .quality-choices label,
+  .confirmation {
+    color: #59695f;
+    font-size: 9px;
+  }
+
+  .quality-choices input,
+  .confirmation input {
+    accent-color: var(--green);
+    vertical-align: -2px;
+  }
+
+  .compression-options .raster-warning {
+    color: #815c30;
+  }
+
+  .conversion-detail {
+    margin: 12px 0 0;
+    color: #7e8982;
+    font-size: 8px;
+    line-height: 1.6;
+  }
+
+  .conversion-controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 11px;
+    margin-top: 13px;
+  }
+
+  .convert-button {
+    min-height: 37px;
+    padding: 0 12px;
+    cursor: pointer;
+    font-size: 9px;
+  }
+
+  .convert-button:disabled {
+    cursor: wait;
+    opacity: 0.7;
+  }
+
+  .supported-format {
+    color: #818d85;
+    font-size: 8px;
+  }
+
+  .supported-format strong {
+    color: #56695b;
+    font-weight: 650;
+  }
+
+  .progress-area {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    margin-top: 13px;
+  }
+
+  .progress-area progress {
+    width: min(185px, 45%);
+    height: 5px;
+    overflow: hidden;
+    border: 0;
+    border-radius: 5px;
+    background: #edf0ed;
+  }
+
+  .progress-area progress::-webkit-progress-bar {
+    border-radius: 5px;
+    background: #edf0ed;
+  }
+
+  .progress-area progress::-webkit-progress-value {
+    border-radius: 5px;
+    background: #58916b;
+  }
+
+  .progress-area progress::-moz-progress-bar {
+    border-radius: 5px;
+    background: #58916b;
+  }
+
+  .progress-area span {
+    color: #8b948e;
+    font-size: 8px;
+  }
+
+  .workspace-status {
+    min-height: 14px;
+    margin: 7px 0 0;
+    color: #598064;
+    font-size: 9px;
+    line-height: 1.55;
+  }
+
+  .workspace-status:empty {
+    display: none;
+  }
+
+  .workspace-status.error {
+    color: #a54138;
+  }
+
+  .result-card {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    margin-top: 10px;
+    padding: 12px;
+    border: 1px solid #dce9dc;
+    border-radius: 5px;
+    background: #f7fbf6;
+  }
+
+  .result-check {
+    display: grid;
+    width: 24px;
+    height: 24px;
+    flex: 0 0 24px;
+    place-items: center;
+    border-radius: 50%;
+    background: #e5f1e4;
+    color: #33734a;
+    font-size: 13px;
+  }
+
+  .result-copy {
+    display: grid;
+    min-width: 120px;
+    flex: 1;
+    gap: 4px;
+  }
+
+  .result-copy strong {
+    color: #405c47;
     font-size: 10px;
   }
 
-  footer .wordmark {
+  .result-copy span {
+    color: #718078;
+    font-size: 8px;
+    overflow-wrap: anywhere;
+  }
+
+  .result-copy p {
+    margin: 3px 0 0;
+    color: #815c30;
+    font-size: 8px;
+    line-height: 1.55;
+  }
+
+  .download-button {
+    padding: 8px 10px;
+    border-radius: 4px;
+    background: #33734a;
+    color: white;
+    font-size: 9px;
+    font-weight: 650;
+  }
+
+  .download-button:hover {
+    background: #275b3b;
+  }
+
+  .workspace-limits {
+    margin: 12px 0 0;
+    color: #858f88;
+    font-size: 9px;
+  }
+
+  .how-section {
+    display: grid;
+    grid-template-columns: 0.95fr 1.05fr;
+    align-items: center;
+    gap: 70px;
+    max-width: 1160px;
+    margin: 0 auto;
+    padding: 82px 34px;
+  }
+
+  .how-intro h2 {
+    margin: 13px 0;
+    font-size: 39px;
+    line-height: 1.1;
+  }
+
+  .how-intro > p:last-child {
+    max-width: 340px;
+    margin: 0;
+    color: #77827b;
+    font-size: 11px;
+    line-height: 1.8;
+  }
+
+  .steps {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 15px;
+  }
+
+  .step {
+    min-height: 139px;
+    padding: 14px 12px;
+    border-top: 1px solid #dde7dd;
+  }
+
+  .step-number {
+    color: #6b9977;
+    font-size: 8px;
+    font-weight: 750;
+    letter-spacing: 1px;
+  }
+
+  .step h3 {
+    margin: 13px 0 7px;
+    color: #34443b;
+    font-family: Georgia, serif;
+    font-size: 15px;
+    font-weight: 400;
+  }
+
+  .step p {
+    margin: 0;
+    color: #79847d;
+    font-size: 9px;
+    line-height: 1.7;
+  }
+
+  .privacy-section {
+    display: grid;
+    grid-template-columns: 56px 1fr 1.05fr;
+    align-items: center;
+    gap: 18px;
+    max-width: 1150px;
+    margin: 0 auto 65px;
+    padding: 28px 30px;
+    border: 1px solid #e5ece5;
+    border-radius: 7px;
+    background: #fbfcfa;
+  }
+
+  .privacy-lock {
+    display: grid;
+    width: 43px;
+    height: 43px;
+    place-items: center;
+    border: 1px solid #e2eae1;
+    border-radius: 50%;
+    background: #fff;
+    color: #49805e;
+  }
+
+  .privacy-lock svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  .privacy-copy .eyebrow {
+    margin-bottom: 7px;
+  }
+
+  .privacy-copy h2 {
+    margin: 0 0 7px;
+    font-size: 25px;
+    letter-spacing: -1px;
+  }
+
+  .privacy-copy > p:last-child {
+    max-width: 405px;
+    margin: 0;
+    color: #77827b;
+    font-size: 9px;
+    line-height: 1.7;
+  }
+
+  .privacy-facts {
+    display: grid;
+    gap: 10px;
+    padding-left: 19px;
+    border-left: 1px solid #e7ece7;
+    color: #596b5f;
+    font-size: 9px;
+  }
+
+  .privacy-facts i {
+    margin-right: 9px;
+    color: #79a187;
+    font-size: 8px;
+    font-style: normal;
+    font-weight: 750;
+  }
+
+  .footer {
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 14px;
+    min-height: 71px;
+    border-top: 1px solid #e9eeea;
+    color: #7c8880;
+    font-size: 9px;
+  }
+
+  .footer .wordmark {
     color: var(--ink);
     font-size: 15px;
   }
 
-  footer .mark {
-    width: 24px;
-    height: 24px;
-    font-size: 15px;
+  .footer .brand-mark {
+    width: 25px;
+    height: 25px;
+    border-radius: 7px;
+    font-size: 18px;
   }
 
-  @media (max-width: 760px) {
+  .back-to-top span {
+    margin-left: 4px;
+    color: var(--green);
+  }
+
+  .copyright {
+    color: #929b95;
+  }
+
+  @media (max-width: 900px) {
     .topbar,
-    footer {
-      padding-right: 22px;
-      padding-left: 22px;
+    .hero {
+      padding-right: 32px;
+      padding-left: 32px;
+    }
+
+    .hero {
+      gap: 16px;
+    }
+
+    .hero-proof {
+      gap: 11px 14px;
+    }
+
+    .workspace-section {
+      padding-right: 24px;
+      padding-left: 24px;
+    }
+
+    .workspace-shell {
+      grid-template-columns: 218px minmax(0, 1fr);
+    }
+
+    .work-area {
+      padding-right: 18px;
+      padding-left: 18px;
+    }
+
+    .how-section {
+      gap: 32px;
+    }
+
+    .privacy-section {
+      margin-right: 24px;
+      margin-left: 24px;
+    }
+  }
+
+  @media (max-width: 680px) {
+    html {
+      scroll-padding-top: 16px;
+    }
+
+    .topbar {
+      min-height: 66px;
+      padding: 14px 20px;
     }
 
     nav {
-      gap: 18px;
+      gap: 13px;
+      font-size: 10px;
     }
 
-    .top-link {
+    nav a:nth-child(2) {
       display: none;
+    }
+
+    .topbar .wordmark {
+      gap: 7px;
+      font-size: 16px;
+    }
+
+    .brand-mark {
+      width: 27px;
+      height: 27px;
+      font-size: 19px;
+    }
+
+    .header-button {
+      padding: 9px;
+      font-size: 0;
+    }
+
+    .header-button svg {
+      width: 16px;
+      height: 16px;
     }
 
     .hero {
       grid-template-columns: 1fr;
-      padding: 54px 24px 35px;
-    }
-
-    .hero-copy {
-      padding: 0;
+      gap: 0;
+      padding: 42px 23px 34px;
     }
 
     h1 {
-      font-size: clamp(52px, 12vw, 70px);
+      max-width: 480px;
+      margin: 15px 0 13px;
+      font-size: clamp(43px, 11vw, 61px);
     }
 
-    .hero-art {
-      min-height: 380px;
-      margin-top: 7px;
+    .hero-summary {
+      max-width: 460px;
+      font-size: 12px;
     }
 
-    .tools-section {
-      padding: 67px 24px;
+    .hero-actions {
+      gap: 11px;
     }
 
-    .section-heading {
+    .hero-proof {
+      gap: 10px 16px;
+      margin-top: 22px;
+    }
+
+    .hero-visual {
+      min-height: 310px;
+      margin-top: 9px;
+    }
+
+    .visual-glow {
+      width: 270px;
+      height: 270px;
+    }
+
+    .visual-card {
+      width: 190px;
+      height: 244px;
+    }
+
+    .document-front .doc-paper {
+      padding: 18px 20px;
+    }
+
+    .document-back {
+      transform: translate(38px, 2px) rotate(7deg);
+    }
+
+    .document-front {
+      transform: translate(-15px, 0) rotate(-4deg);
+    }
+
+    .chip-pdf {
+      top: 39px;
+      right: 0;
+    }
+
+    .chip-docx {
+      bottom: 39px;
+      left: 0;
+    }
+
+    .visual-caption {
+      right: 4px;
+      bottom: 6px;
+      font-size: 8px;
+    }
+
+    .workspace-section {
+      padding: 44px 15px 46px;
+    }
+
+    .workspace-heading {
       display: block;
+      margin-bottom: 15px;
     }
 
-    .section-aside {
-      margin-top: 19px;
+    .workspace-heading h2 {
+      font-size: 30px;
     }
 
-    .tool-grid {
+    .local-badge {
+      margin-top: 12px;
+    }
+
+    .workspace-shell {
       grid-template-columns: 1fr;
+      min-height: 0;
     }
 
-    .tool-card {
-      min-height: 220px;
+    .tool-sidebar {
+      display: flex;
+      gap: 13px;
+      overflow-x: auto;
+      padding: 12px;
+      border-right: 0;
+      border-bottom: 1px solid #e9ede9;
     }
 
-    .privacy {
-      grid-template-columns: 50px 1fr;
-      gap: 14px;
-      padding: 65px 24px;
+    .tool-group {
+      min-width: max-content;
     }
 
-    .privacy-icon {
-      width: 42px;
-      height: 42px;
+    .tool-group + .tool-group {
+      margin-top: 0;
     }
 
-    .privacy-word {
+    .tool-group h3 {
+      margin-left: 5px;
+    }
+
+    .tool-list {
+      display: flex;
+      gap: 5px;
+    }
+
+    .tool-option {
+      width: auto;
+      min-height: 33px;
+      gap: 6px;
+      padding: 5px 7px;
+    }
+
+    .tool-icon {
+      width: 18px;
+      height: 18px;
+      flex-basis: 18px;
+    }
+
+    .tool-name {
+      font-size: 9px;
+    }
+
+    .tool-arrow {
       display: none;
     }
 
-    footer > span {
+    .work-area {
+      padding: 18px 13px 15px;
+    }
+
+    .work-heading h3 {
+      font-size: 20px;
+    }
+
+    .format-badge {
+      padding: 6px;
+      font-size: 6px;
+    }
+
+    .file-stage {
+      padding: 10px;
+    }
+
+    .drop-zone {
+      min-height: 195px;
+    }
+
+    .quality-choices {
+      display: grid;
+      gap: 8px;
+    }
+
+    .how-section {
+      grid-template-columns: 1fr;
+      gap: 23px;
+      padding: 53px 23px;
+    }
+
+    .how-intro h2 {
+      font-size: 35px;
+    }
+
+    .steps {
+      gap: 9px;
+    }
+
+    .step {
+      min-height: 150px;
+      padding: 12px 8px;
+    }
+
+    .step h3 {
+      font-size: 13px;
+    }
+
+    .privacy-section {
+      grid-template-columns: 43px 1fr;
+      gap: 12px;
+      margin: 0 15px 42px;
+      padding: 19px 15px;
+    }
+
+    .privacy-copy h2 {
+      font-size: 23px;
+    }
+
+    .privacy-facts {
+      grid-column: 2;
+      gap: 8px;
+      padding: 12px 0 0;
+      border-top: 1px solid #e7ece7;
+      border-left: 0;
+    }
+
+    .footer {
+      padding: 15px 18px;
+      font-size: 8px;
+    }
+
+    .footer-note {
       display: none;
     }
   }
 
-  @media (prefers-reduced-motion: reduce) {
-    html {
-      scroll-behavior: auto;
+  @media (max-width: 370px) {
+    nav {
+      gap: 8px;
     }
 
+    .hero-proof {
+      font-size: 9px;
+    }
+
+    .steps {
+      grid-template-columns: 1fr;
+    }
+
+    .step {
+      min-height: 0;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
     *,
     *::before,
     *::after {
+      scroll-behavior: auto !important;
       transition-duration: 0.01ms !important;
     }
   }
