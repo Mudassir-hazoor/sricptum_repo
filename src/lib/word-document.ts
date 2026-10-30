@@ -1,8 +1,16 @@
+import type { ExtractedImage } from "./document-extraction";
+
+export interface WordDocumentSection {
+  heading?: string;
+  text: string;
+  image?: ExtractedImage;
+}
+
 export async function createWordDocument(
   title: string,
-  sections: Array<{ heading?: string; text: string }>,
+  sections: WordDocumentSection[],
 ): Promise<Blob> {
-  const { Document, HeadingLevel, Packer, Paragraph, TextRun } =
+  const { Document, HeadingLevel, ImageRun, Packer, Paragraph, TextRun } =
     await import("docx");
   const children = [
     new Paragraph({
@@ -32,6 +40,47 @@ export async function createWordDocument(
           heading: HeadingLevel.HEADING_1,
           pageBreakBefore: index > 0,
           keepNext: true,
+        }),
+      );
+    }
+
+    if (section.image) {
+      const { data, contentType } = section.image;
+      const type =
+        contentType === "image/jpeg"
+          ? "jpg"
+          : contentType.slice("image/".length);
+      if (
+        type !== "png" &&
+        type !== "jpg" &&
+        type !== "gif" &&
+        type !== "bmp"
+      ) {
+        throw new Error(`Unsupported embedded image format: ${contentType}.`);
+      }
+      const scale = Math.min(
+        620 / section.image.width,
+        460 / section.image.height,
+        1,
+      );
+      children.push(
+        new Paragraph({
+          children: [
+            new ImageRun({
+              data,
+              type,
+              transformation: {
+                width: section.image.width * scale,
+                height: section.image.height * scale,
+              },
+              altText: {
+                name: section.heading ?? "Original document image",
+                description:
+                  "Embedded image retained from the source document.",
+              },
+            }),
+          ],
+          spacing: { after: 180 },
         }),
       );
     }

@@ -1,5 +1,14 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import JSZip from "jszip";
+import {
+  Document,
+  ImageRun,
+  Packer,
+  Paragraph,
+  Table,
+  TableCell,
+  TableRow,
+} from "docx";
 import {
   formatFileSize,
   getFileExtension,
@@ -10,6 +19,7 @@ import {
   splitTextIntoSlides,
   validateInputFiles,
 } from "./conversion-utils";
+import { extractPdfPageText, extractWordContent } from "./document-extraction";
 import { createWordDocument } from "./word-document";
 
 function makeFile(name: string, size = 1): File {
@@ -114,8 +124,23 @@ describe("document conversion helpers", () => {
   });
 
   it("creates a styled Word document with page breaks for source pages", async () => {
+    const imageData = Uint8Array.from(
+      Buffer.from(
+        "iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAFElEQVR4AWJiYGD4D8IgBpBmYAAAAAD//7vS9wEAAAAGSURBVAMAGDACA6ybwrYAAAAASUVORK5CYII=",
+        "base64",
+      ),
+    );
     const blob = await createWordDocument("Quarterly report", [
-      { heading: "Page 1", text: "First page text." },
+      {
+        heading: "Page 1",
+        text: "First page text.",
+        image: {
+          data: imageData,
+          contentType: "image/png",
+          width: 1,
+          height: 1,
+        },
+      },
       { heading: "Page 2", text: "Second page text." },
     ]);
     const archive = await JSZip.loadAsync(await blob.arrayBuffer());
@@ -126,7 +151,131 @@ describe("document conversion helpers", () => {
     expect(documentXml).toContain("First page text.");
     expect(documentXml).toContain("Second page text.");
     expect(documentXml).toContain("<w:pageBreakBefore");
+    expect(
+      Object.keys(archive.files).some((fileName) =>
+        fileName.startsWith("word/media/"),
+      ),
+    ).toBe(true);
     expect(stylesXml).toContain("Arial");
     expect(stylesXml).toContain("203B2D");
+  });
+
+  it("keeps paragraph and line boundaries when extracting PDF text", () => {
+    expect(
+      extractPdfPageText([
+        {
+          str: "Quarterly",
+          transform: [1, 0, 0, 1, 40, 700],
+          width: 48,
+          height: 12,
+        },
+        {
+          str: "results",
+          transform: [1, 0, 0, 1, 92, 700],
+          width: 36,
+          height: 12,
+          hasEOL: true,
+        },
+        {
+          str: "Revenue increased",
+          transform: [1, 0, 0, 1, 40, 680],
+          width: 100,
+          height: 12,
+          hasEOL: true,
+        },
+      ]),
+    ).toBe("Quarterly results\nRevenue increased");
+  });
+
+  it("extracts Word paragraphs and table content and rejects text-free files", async () => {
+    const imageData = Uint8Array.from(
+      Buffer.from(
+        "iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAFElEQVR4AWJiYGD4D8IgBpBmYAAAAAD//7vS9wEAAAAGSURBVAMAGDACA6ybwrYAAAAASUVORK5CYII=",
+        "base64",
+      ),
+    );
+    vi.stubGlobal("createImageBitmap", async () => ({
+      width: 1,
+      height: 1,
+      close: () => undefined,
+    }));
+    try {
+      const source = new Document({
+        sections: [
+          {
+            children: [
+              new Paragraph("Executive summary"),
+              new Paragraph("The project met its targets."),
+              new Table({
+                rows: [
+                  new TableRow({
+                    children: [
+                      new TableCell({ children: [new Paragraph("Metric")] }),
+                      new TableCell({ children: [new Paragraph("Result")] }),
+                    ],
+                  }),
+                  new TableRow({
+                    children: [
+                      new TableCell({
+                        children: [new Paragraph("Completion")],
+                      }),
+                      new TableCell({ children: [new Paragraph("100%")] }),
+                    ],
+                  }),
+                ],
+              }),
+              new Paragraph({
+                children: [
+                  new ImageRun({
+                    data: imageData,
+                    type: "png",
+                    transformation: { width: 1, height: 1 },
+                  }),
+                ],
+              }),
+            ],
+          },
+        ],
+      });
+      const sourceBlob = await Packer.toBlob(source);
+      const extracted = await extractWordContent(sourceBlob, "report.docx");
+      const imageOnlyBlob = await Packer.toBlob(
+        new Document({
+          sections: [
+            {
+              children: [
+                new Paragraph({
+                  children: [
+                    new ImageRun({
+                      data: imageData,
+                      type: "png",
+                      transformation: { width: 1, height: 1 },
+                    }),
+                  ],
+                }),
+              ],
+            },
+          ],
+        }),
+      );
+      const imageOnly = await extractWordContent(imageOnlyBlob, "image.docx");
+      const emptyBlob = await Packer.toBlob(
+        new Document({ sections: [{ children: [] }] }),
+      );
+
+      expect(extracted.text).toContain("Executive summary");
+      expect(extracted.text).toContain("The project met its targets.");
+      expect(extracted.text).toContain("Metric");
+      expect(extracted.text).toContain("100%");
+      expect(extracted.images).toHaveLength(1);
+      expect(extracted.images[0].contentType).toBe("image/png");
+      expect(imageOnly.text).toContain("No selectable text");
+      expect(imageOnly.images).toHaveLength(1);
+      await expect(extractWordContent(emptyBlob, "empty.docx")).rejects.toThrow(
+        /no extractable text/,
+      );
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });

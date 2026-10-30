@@ -38,7 +38,7 @@ export const TOOLS = {
     outputFormat: "DOCX",
     maxFiles: 1,
     detail:
-      "Extracted text is formatted with a clear title, page headings and readable body text. Original page design, images and scanned text are not recovered.",
+      "Each original PDF page is retained as an image, followed by its editable extracted text. Scanned pages are preserved visually but are not OCR-converted.",
   },
   "word-to-pdf": {
     title: "Word to PDF",
@@ -47,7 +47,7 @@ export const TOOLS = {
     outputFormat: "PDF",
     maxFiles: 1,
     detail:
-      "Text is typeset in a clean, consistent PDF style. Original page layouts, fonts, images and embedded objects may differ.",
+      "Editable text is formatted in a clean PDF layout, and supported embedded images are retained on separate pages. Original Word layout is not reproduced.",
   },
   "powerpoint-to-word": {
     title: "PowerPoint to Word",
@@ -57,7 +57,7 @@ export const TOOLS = {
     outputFormat: "DOCX",
     maxFiles: 1,
     detail:
-      "Slide text and order are kept in a styled Word document with clear slide headings. Original slide design, images, charts and animations are not.",
+      "Slide text, speaker notes, chart data and supported embedded images are retained. Original slide layout and animations may differ.",
   },
   "word-to-powerpoint": {
     title: "Word to PowerPoint",
@@ -66,17 +66,17 @@ export const TOOLS = {
     outputFormat: "PPTX",
     maxFiles: 1,
     detail:
-      "The text is organised into clean slides; the original Word layout is not reproduced.",
+      "Editable text is organized into clean slides, and supported embedded images are retained on additional slides. Original Word layout is not reproduced.",
   },
   "powerpoint-to-pdf": {
     title: "PowerPoint to PDF",
     description:
-      "Save the text from a PowerPoint presentation as a readable PDF.",
+      "Save presentation text and supported embedded images as a shareable PDF.",
     inputFormats: [".pptx"],
     outputFormat: "PDF",
     maxFiles: 1,
     detail:
-      "Creates a typeset handout with one page per slide. Slide visuals, fonts, charts and animations are not reproduced.",
+      "Creates editable text pages and includes chart data, speaker notes and supported images. Original layout and animations may differ.",
   },
   "pdf-to-powerpoint": {
     title: "PDF to PowerPoint",
@@ -85,7 +85,7 @@ export const TOOLS = {
     outputFormat: "PPTX",
     maxFiles: 1,
     detail:
-      "Creates one cleanly styled slide per PDF page. Original page design and images are not recreated.",
+      "Creates editable text slides and retains the original PDF pages as slide images. Scanned-page text is not OCR-converted.",
   },
   "compress-pdf": {
     title: "Compress PDF",

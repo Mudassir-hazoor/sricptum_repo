@@ -13,7 +13,16 @@ import {
   type OperationId,
   validateInputFiles,
 } from "../lib/conversion-utils";
-import { createWordDocument } from "../lib/word-document";
+import {
+  extractPdfPageText,
+  extractWordContent,
+  normalizeEmbeddedImage,
+  type ExtractedImage,
+} from "../lib/document-extraction";
+import {
+  createWordDocument,
+  type WordDocumentSection,
+} from "../lib/word-document";
 
 type PdfDocumentProxy = import("pdfjs-dist").PDFDocumentProxy;
 
@@ -28,6 +37,12 @@ function getPdfjs(): Promise<typeof import("pdfjs-dist")> {
     return pdfjs;
   });
   return pdfjsModule;
+}
+
+function imageDataBuffer(data: Uint8Array): ArrayBuffer {
+  const copy = new Uint8Array(data.byteLength);
+  copy.set(data);
+  return copy.buffer;
 }
 
 const FILE_LIMIT = MAX_FILE_SIZE;
@@ -251,16 +266,6 @@ if (toolButtons.length > 0) {
     setProgress(100, "Conversion complete");
   }
 
-  function requireText(text: string, fileName: string): string {
-    const trimmed = text.replaceAll(String.fromCharCode(0), "").trim();
-    if (!trimmed) {
-      throw new Error(
-        `${fileName} has no extractable text. Scanned pages or image-only documents need OCR, which isn’t available in this browser tool.`,
-      );
-    }
-    return trimmed;
-  }
-
   async function loadPdf(
     file: File,
     maxPages = MAX_PDF_PAGES,
@@ -307,46 +312,68 @@ if (toolButtons.length > 0) {
     file: File,
     maxPages: number,
     report: (progressValue: number, label: string) => void,
-  ): Promise<string[]> {
+  ): Promise<{ pages: string[]; images: ExtractedImage[] }> {
     const { pdf, close } = await loadPdf(file, maxPages);
     try {
       const pages: string[] = [];
+      const images: ExtractedImage[] = [];
       for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
         report(
-          (pageNumber / pdf.numPages) * 70,
+          (pageNumber / pdf.numPages) * 65,
           `Reading page ${pageNumber} of ${pdf.numPages}`,
         );
         const page = await pdf.getPage(pageNumber);
         const content = await page.getTextContent();
-        pages.push(
-          content.items
-            .filter((item) => "str" in item)
-            .map((item) => ("str" in item ? item.str : ""))
-            .join(" ")
-            .replace(/[ \t]+/g, " ")
-            .trim(),
+        const text = extractPdfPageText(
+          content.items.filter(
+            (item): item is typeof item & { str: string } => "str" in item,
+          ),
         );
-      }
-      if (!pages.some((page) => page.length > 0)) {
-        throw new Error(
-          "This PDF contains no extractable text. It may be scanned or image-only; OCR is not available in this browser tool.",
+        pages.push(text);
+        report(
+          65 + (pageNumber / pdf.numPages) * 25,
+          `Preserving the original page ${pageNumber} of ${pdf.numPages}`,
         );
+        const viewport = page.getViewport({ scale: 1.3 });
+        const { canvas, context } = createPageCanvas(viewport);
+        report(
+          65 + (pageNumber / pdf.numPages) * 25,
+          `Rendering page ${pageNumber} of ${pdf.numPages}`,
+        );
+        await page.render({ canvas, canvasContext: context, viewport }).promise;
+        report(
+          65 + (pageNumber / pdf.numPages) * 25,
+          `Encoding page image ${pageNumber} of ${pdf.numPages}`,
+        );
+        const imageBlob = await canvasToBlob(canvas, "image/jpeg", 0.84);
+        const imageData = new Uint8Array(await imageBlob.arrayBuffer());
+        images.push({
+          data: imageData,
+          contentType: "image/jpeg",
+          width: canvas.width,
+          height: canvas.height,
+        });
+        canvas.width = 0;
+        canvas.height = 0;
+        const imageSize = images.reduce(
+          (total, image) => total + image.data.byteLength,
+          0,
+        );
+        if (imageSize > 80 * 1024 * 1024) {
+          throw new Error(
+            "The rendered PDF pages exceed the 80 MB visual-preservation limit. Split the document into smaller files and try again.",
+          );
+        }
       }
-      return pages;
+      return { pages, images };
     } finally {
       await close();
     }
   }
 
-  async function extractWordText(file: File): Promise<string> {
-    const { default: mammoth } = await import("mammoth");
-    const result = await mammoth.extractRawText({
-      arrayBuffer: await file.arrayBuffer(),
-    });
-    return requireText(result.value, file.name);
-  }
-
-  async function extractSlides(file: File): Promise<string[]> {
+  async function extractSlides(
+    file: File,
+  ): Promise<{ slides: string[]; images: ExtractedImage[] }> {
     const { default: JSZip } = await import("jszip");
     const zip = await JSZip.loadAsync(await file.arrayBuffer(), {
       checkCRC32: true,
@@ -405,6 +432,8 @@ if (toolButtons.length > 0) {
     );
 
     const slides: string[] = [];
+    const images: ExtractedImage[] = [];
+    const includedImages = new Set<string>();
     for (const [index, path] of entries.entries()) {
       const xmlText = await zip.file(path)?.async("string");
       if (!xmlText)
@@ -412,7 +441,7 @@ if (toolButtons.length > 0) {
       const xml = new DOMParser().parseFromString(xmlText, "application/xml");
       if (xml.querySelector("parsererror"))
         throw new Error(`${file.name} has an unreadable slide.`);
-      const text = Array.from(xml.getElementsByTagNameNS("*", "p"))
+      const slideText = Array.from(xml.getElementsByTagNameNS("*", "p"))
         .map((paragraph) =>
           Array.from(paragraph.getElementsByTagNameNS("*", "t"))
             .map((run) => run.textContent ?? "")
@@ -420,17 +449,170 @@ if (toolButtons.length > 0) {
         )
         .filter((paragraph) => paragraph.trim())
         .join("\n");
-      slides.push(text.trim());
+      const slideTextParts = slideText.trim() ? [slideText.trim()] : [];
+      const slideName = path.split("/").pop();
+      const slideRelationships = slideName
+        ? await zip.file(`ppt/slides/_rels/${slideName}.rels`)?.async("string")
+        : undefined;
+      if (!slideRelationships) {
+        slides.push(slideTextParts.join("\n\n"));
+        continue;
+      }
+      const relationshipsXml = new DOMParser().parseFromString(
+        slideRelationships,
+        "application/xml",
+      );
+      if (relationshipsXml.querySelector("parsererror")) {
+        throw new Error(
+          `${file.name} has unreadable slide content references.`,
+        );
+      }
+      for (const relationship of Array.from(
+        relationshipsXml.getElementsByTagNameNS("*", "Relationship"),
+      )) {
+        const target = relationship.getAttribute("Target");
+        const type = relationship.getAttribute("Type");
+        if (!target || !type) continue;
+        const isImage = type.endsWith("/image");
+        const isChart = type.endsWith("/chart");
+        const isNotes = type.endsWith("/notesSlide");
+        if (!isImage && !isChart && !isNotes) continue;
+        if (
+          target.startsWith("/") ||
+          target.includes("\\") ||
+          /^[a-z]+:/i.test(target)
+        ) {
+          throw new Error(
+            `${file.name} contains an invalid content reference.`,
+          );
+        }
+        const relatedPath = new URL(
+          target,
+          `https://scriptorium.invalid/${path}`,
+        ).pathname.slice(1);
+        if (isChart) {
+          if (!relatedPath.startsWith("ppt/charts/")) {
+            throw new Error(
+              `${file.name} contains an invalid chart reference.`,
+            );
+          }
+          const chartText = await zip.file(relatedPath)?.async("string");
+          if (!chartText) {
+            throw new Error(`${file.name} is missing embedded chart data.`);
+          }
+          const chartXml = new DOMParser().parseFromString(
+            chartText,
+            "application/xml",
+          );
+          if (chartXml.querySelector("parsererror")) {
+            throw new Error(`${file.name} contains unreadable chart data.`);
+          }
+          const values = Array.from(chartXml.getElementsByTagNameNS("*", "v"))
+            .map((value) => value.textContent?.trim() ?? "")
+            .filter(Boolean);
+          if (values.length > 0) {
+            slideTextParts.push(`Chart data: ${values.join(" | ")}`);
+          }
+          continue;
+        }
+        if (isNotes) {
+          if (!relatedPath.startsWith("ppt/notesSlides/")) {
+            throw new Error(
+              `${file.name} contains an invalid speaker-note reference.`,
+            );
+          }
+          const notesText = await zip.file(relatedPath)?.async("string");
+          if (!notesText) {
+            throw new Error(`${file.name} is missing its speaker notes.`);
+          }
+          const notesXml = new DOMParser().parseFromString(
+            notesText,
+            "application/xml",
+          );
+          if (notesXml.querySelector("parsererror")) {
+            throw new Error(`${file.name} contains unreadable speaker notes.`);
+          }
+          const notes = Array.from(notesXml.getElementsByTagNameNS("*", "p"))
+            .filter((paragraph) => {
+              const placeholder = paragraph.getElementsByTagNameNS(
+                "*",
+                "ph",
+              )[0];
+              return !["sldNum", "dt", "hdr", "ftr"].includes(
+                placeholder?.getAttribute("type") ?? "",
+              );
+            })
+            .map((paragraph) =>
+              Array.from(paragraph.getElementsByTagNameNS("*", "t"))
+                .map((run) => run.textContent ?? "")
+                .join(""),
+            )
+            .filter((paragraph) => paragraph.trim());
+          if (notes.length > 0) {
+            slideTextParts.push(`Speaker notes:\n${notes.join("\n")}`);
+          }
+          continue;
+        }
+        if (!isImage) continue;
+        const imagePath = relatedPath;
+        if (!imagePath.startsWith("ppt/media/")) {
+          throw new Error(`${file.name} contains an invalid image reference.`);
+        }
+        if (includedImages.has(imagePath)) continue;
+        includedImages.add(imagePath);
+        const extension = imagePath.split(".").pop()?.toLowerCase();
+        const contentType =
+          extension === "jpg" || extension === "jpeg"
+            ? "image/jpeg"
+            : extension === "png"
+              ? "image/png"
+              : extension === "gif"
+                ? "image/gif"
+                : extension === "bmp"
+                  ? "image/bmp"
+                  : extension === "svg"
+                    ? "image/svg+xml"
+                    : extension === "webp"
+                      ? "image/webp"
+                      : undefined;
+        if (!contentType) {
+          throw new Error(
+            `${file.name} contains an embedded image format that cannot be preserved. Convert slide images to PNG or JPEG and try again.`,
+          );
+        }
+        const imageFile = zip.file(imagePath);
+        if (!imageFile)
+          throw new Error(`${file.name} is missing an embedded slide image.`);
+        const data = await imageFile.async("uint8array");
+        images.push(await normalizeEmbeddedImage(data, contentType, file.name));
+        const imageSize = images.reduce(
+          (total, image) => total + image.data.byteLength,
+          0,
+        );
+        if (imageSize > 80 * 1024 * 1024) {
+          throw new Error(
+            "The embedded PowerPoint images exceed the 80 MB preservation limit.",
+          );
+        }
+      }
+      slides.push(slideTextParts.join("\n\n"));
     }
-    if (!slides.some((slide) => slide.length > 0)) {
+    if (!slides.some((slide) => slide.length > 0) && images.length === 0) {
       throw new Error(`${file.name} contains no extractable slide text.`);
     }
-    return slides;
+    return {
+      slides: slides.map(
+        (slide) =>
+          slide || "(No selectable text on this slide. See retained images.)",
+      ),
+      images,
+    };
   }
 
   async function createTextPdf(
     title: string,
     sections: Array<{ heading?: string; text: string }>,
+    images: ExtractedImage[] = [],
   ): Promise<Blob> {
     const { PDFDocument, PageSizes, StandardFonts, rgb } =
       await import("pdf-lib");
@@ -579,6 +761,57 @@ if (toolButtons.length > 0) {
       throw error;
     }
 
+    for (const [index, image] of images.entries()) {
+      let embedded;
+      if (image.contentType === "image/png") {
+        embedded = await pdf.embedPng(image.data);
+      } else if (image.contentType === "image/jpeg") {
+        embedded = await pdf.embedJpg(image.data);
+      } else {
+        const bitmap = await createImageBitmap(
+          new Blob([imageDataBuffer(image.data)], {
+            type: image.contentType,
+          }),
+        );
+        const canvas = document.createElement("canvas");
+        canvas.width = bitmap.width;
+        canvas.height = bitmap.height;
+        const context = canvas.getContext("2d", { alpha: false });
+        if (!context) {
+          bitmap.close();
+          throw new Error("Your browser couldn’t create an image canvas.");
+        }
+        context.drawImage(bitmap, 0, 0);
+        bitmap.close();
+        const png = await canvasToBlob(canvas);
+        embedded = await pdf.embedPng(await png.arrayBuffer());
+        canvas.width = 0;
+        canvas.height = 0;
+      }
+
+      const imagePage = pdf.addPage(PageSizes.A4);
+      pages.push(imagePage);
+      const maxWidth = pageWidth - margin * 2;
+      const maxHeight = pageHeight - margin * 2 - 24;
+      const scale = Math.min(
+        maxWidth / embedded.width,
+        maxHeight / embedded.height,
+      );
+      imagePage.drawText(`Original embedded image ${index + 1}`, {
+        x: margin,
+        y: pageHeight - margin,
+        size: 12,
+        font: headingFont,
+        color: rgb(0.23, 0.41, 0.29),
+      });
+      imagePage.drawImage(embedded, {
+        x: (pageWidth - embedded.width * scale) / 2,
+        y: (pageHeight - 24 - embedded.height * scale) / 2,
+        width: embedded.width * scale,
+        height: embedded.height * scale,
+      });
+    }
+
     pages.forEach((pageItem, index) => {
       pageItem.drawText("SCRIPTORIUM  /  DOCUMENT CONVERSION", {
         x: margin,
@@ -616,7 +849,22 @@ if (toolButtons.length > 0) {
   async function savePresentation(
     title: string,
     slides: string[],
+    images: ExtractedImage[] = [],
+    useImageSlidesWithNotes = false,
   ): Promise<Blob> {
+    if (useImageSlidesWithNotes && slides.length !== images.length) {
+      throw new Error(
+        "The original page images and extracted text could not be matched.",
+      );
+    }
+    const outputSlideCount = useImageSlidesWithNotes
+      ? images.length
+      : slides.length + images.length;
+    if (outputSlideCount > MAX_POWERPOINT_SLIDES) {
+      throw new Error(
+        `This conversion would create more than ${MAX_POWERPOINT_SLIDES} slides when preserving the extracted text and images. Convert fewer pages or images at a time.`,
+      );
+    }
     const { default: PptxGenJS } = await import("pptxgenjs");
     const presentation = new PptxGenJS();
     presentation.layout = "LAYOUT_WIDE";
@@ -624,7 +872,8 @@ if (toolButtons.length > 0) {
     presentation.subject = "Text extracted and reorganised in Scriptorium";
     presentation.title = title;
 
-    slides.forEach((text, index) => {
+    const textSlides = useImageSlidesWithNotes ? [] : slides;
+    textSlides.forEach((text, index) => {
       const slide = presentation.addSlide();
       slide.background = { color: "F7F6F2" };
       slide.addText(title, {
@@ -684,6 +933,79 @@ if (toolButtons.length > 0) {
         breakLine: false,
       });
     });
+    for (const [index, image] of images.entries()) {
+      const slide = presentation.addSlide();
+      slide.background = { color: "F7F6F2" };
+      slide.addText(
+        `${useImageSlidesWithNotes ? "Original PDF page" : "Original embedded image"} ${index + 1}`,
+        {
+          x: 0.7,
+          y: 0.35,
+          w: 11.9,
+          h: 0.4,
+          fontFace: "Aptos Display",
+          fontSize: 18,
+          bold: true,
+          color: "2F3B2E",
+          margin: 0,
+        },
+      );
+      let outputImage = image;
+      if (
+        image.contentType !== "image/png" &&
+        image.contentType !== "image/jpeg"
+      ) {
+        const bitmap = await createImageBitmap(
+          new Blob([imageDataBuffer(image.data)], {
+            type: image.contentType,
+          }),
+        );
+        const canvas = document.createElement("canvas");
+        canvas.width = bitmap.width;
+        canvas.height = bitmap.height;
+        const context = canvas.getContext("2d", { alpha: false });
+        if (!context) {
+          bitmap.close();
+          throw new Error("Your browser couldn’t create an image canvas.");
+        }
+        context.drawImage(bitmap, 0, 0);
+        bitmap.close();
+        const png = await canvasToBlob(canvas);
+        outputImage = {
+          data: new Uint8Array(await png.arrayBuffer()),
+          contentType: "image/png",
+          width: canvas.width,
+          height: canvas.height,
+        };
+        canvas.width = 0;
+        canvas.height = 0;
+      }
+      const encoded = outputImage.data.reduce((chunks, byte, byteIndex) => {
+        if (byteIndex % 0x8000 === 0) chunks.push([]);
+        chunks[chunks.length - 1].push(byte);
+        return chunks;
+      }, [] as number[][]);
+      const base64 = btoa(
+        encoded.map((chunk) => String.fromCharCode(...chunk)).join(""),
+      );
+      const data = `data:${outputImage.contentType};base64,${base64}`;
+      const scale = Math.min(
+        11.9 / outputImage.width,
+        6.1 / outputImage.height,
+      );
+      const width = outputImage.width * scale;
+      const height = outputImage.height * scale;
+      slide.addImage({
+        data,
+        x: (13.333 - width) / 2,
+        y: 1.05 + (6.1 - height) / 2,
+        w: width,
+        h: height,
+      });
+      if (useImageSlidesWithNotes && slides[index]) {
+        slide.addNotes(slides[index]);
+      }
+    }
     const output = await presentation.write({
       compression: true,
       outputType: "blob",
@@ -732,80 +1054,97 @@ if (toolButtons.length > 0) {
 
     switch (activeOperation) {
       case "pdf-to-word": {
-        const pages = await extractPdfPages(first, MAX_PDF_PAGES, report);
-        const sections = pages.map((text, index) => ({
-          heading: `Page ${index + 1}`,
-          text: text || "(No selectable text found on this page.)",
-        }));
+        const { pages, images } = await extractPdfPages(
+          first,
+          MAX_PDF_PAGES,
+          report,
+        );
+        const sections = pages.flatMap((text, index) => [
+          {
+            heading: `Original page ${index + 1}`,
+            text: "",
+            image: images[index],
+          },
+          {
+            heading: `Editable text — Page ${index + 1}`,
+            text: text || "(No selectable text found on this page.)",
+          },
+        ]);
         report(90, "Preparing your Word document");
         return {
           blob: await createWordDocument(stem, sections),
-          name: `${stem}-text.docx`,
+          name: `${stem}-preserved.docx`,
           detail:
-            "Text is typeset with a title, page headings and readable body styling. Original page design, images and tables are not preserved; scanned pages require OCR.",
+            "Includes a visual copy of each original PDF page followed by its editable extracted text. Scanned pages are preserved visually but are not OCR-converted.",
         };
       }
       case "word-to-pdf": {
         report(35, "Reading Word document");
-        const text = await extractWordText(first);
+        const content = await extractWordContent(first, first.name);
         report(78, "Creating your PDF");
         return {
-          blob: await createTextPdf(stem, [{ text }]),
+          blob: await createTextPdf(
+            stem,
+            [{ text: content.text }],
+            content.images,
+          ),
           name: `${stem}.pdf`,
-          detail:
-            "Text is typeset in a clean PDF layout. Original page layout, embedded images and formatting are not preserved.",
+          detail: `Editable text is preserved, with ${content.images.length} embedded image${content.images.length === 1 ? "" : "s"} included on separate pages. Original Word layout and formatting are not reproduced.`,
         };
       }
       case "powerpoint-to-word": {
         report(20, "Reading PowerPoint slides");
-        const slides = await extractSlides(first);
+        const { slides, images } = await extractSlides(first);
         report(83, "Preparing your Word document");
+        const sections: WordDocumentSection[] = slides.map((text, index) => ({
+          heading: `Slide ${index + 1}`,
+          text,
+        }));
+        sections.push(
+          ...images.map((image, index) => ({
+            heading: `Original presentation image ${index + 1}`,
+            text: "",
+            image,
+          })),
+        );
         return {
-          blob: await createWordDocument(
-            stem,
-            slides.map((text, index) => ({
-              heading: `Slide ${index + 1}`,
-              text: text || "(No text on this slide.)",
-            })),
-          ),
+          blob: await createWordDocument(stem, sections),
           name: `${stem}-text.docx`,
-          detail:
-            "Slide text and order are kept in a styled Word document with clear slide headings. Visual design, images, charts, notes and animations are not.",
+          detail: `Slide text, speaker notes, cached chart values and order are preserved; ${images.length} embedded ${images.length === 1 ? "image is" : "images are"} included. Slide layout, chart visuals and animations may differ.`,
         };
       }
       case "word-to-powerpoint": {
         report(30, "Reading Word document");
-        const text = await extractWordText(first);
-        const slides = splitTextIntoSlides(text);
-        if (slides.length > MAX_POWERPOINT_SLIDES) {
+        const content = await extractWordContent(first, first.name);
+        const slides = splitTextIntoSlides(content.text);
+        if (slides.length + content.images.length > MAX_POWERPOINT_SLIDES) {
           throw new Error(
-            `This conversion would create more than ${MAX_POWERPOINT_SLIDES} slides.`,
+            `This conversion would create more than ${MAX_POWERPOINT_SLIDES} slides after preserving the extracted text and images.`,
           );
         }
         report(78, `Creating ${slides.length} editable slides`);
         return {
-          blob: await savePresentation(stem, slides),
+          blob: await savePresentation(stem, slides, content.images),
           name: `${stem}.pptx`,
-          detail: `${slides.length} cleanly styled, editable slides created. Original Word layout and embedded content are not included.`,
+          detail: `${slides.length} editable text slides created, with ${content.images.length} embedded image${content.images.length === 1 ? "" : "s"} preserved on additional slides. Original Word page layout is not reproduced.`,
         };
       }
       case "powerpoint-to-pdf": {
         report(20, "Reading PowerPoint slides");
-        const slides = await extractSlides(first);
+        const { slides, images } = await extractSlides(first);
         const sections = slides.map((text, index) => ({
           heading: `Slide ${index + 1}`,
-          text: text || "(No text on this slide.)",
+          text,
         }));
         report(82, "Creating a text-first PDF");
         return {
-          blob: await createTextPdf(stem, sections),
+          blob: await createTextPdf(stem, sections, images),
           name: `${stem}-text.pdf`,
-          detail:
-            "A cleanly typeset PDF with one page per slide. Slide visuals, source fonts, charts and animations are not reproduced.",
+          detail: `Editable slide text, speaker notes and cached chart values are preserved, followed by ${images.length} embedded image${images.length === 1 ? "" : "s"} on separate pages. Original slide layout and chart visuals may differ.`,
         };
       }
       case "pdf-to-powerpoint": {
-        const pages = await extractPdfPages(
+        const { pages, images } = await extractPdfPages(
           first,
           MAX_POWERPOINT_SLIDES,
           report,
@@ -816,9 +1155,9 @@ if (toolButtons.length > 0) {
         );
         report(82, `Creating ${slides.length} editable slides`);
         return {
-          blob: await savePresentation(stem, slides),
+          blob: await savePresentation(stem, slides, images, true),
           name: `${stem}.pptx`,
-          detail: `${slides.length} cleanly styled, editable slides created. PDF layout and images are not recreated.`,
+          detail: `Each original PDF page is retained as a slide image, with its editable extracted text in the slide notes. Scanned-page text is not OCR-converted.`,
         };
       }
       case "compress-pdf": {
