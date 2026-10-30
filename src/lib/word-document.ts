@@ -1,8 +1,9 @@
-import type { ExtractedImage } from "./document-extraction";
+import type { DocumentBlock, ExtractedImage } from "./document-extraction";
 
 export interface WordDocumentSection {
   heading?: string;
   text: string;
+  blocks?: DocumentBlock[];
   image?: ExtractedImage;
 }
 
@@ -10,9 +11,21 @@ export async function createWordDocument(
   title: string,
   sections: WordDocumentSection[],
 ): Promise<Blob> {
-  const { Document, HeadingLevel, ImageRun, Packer, Paragraph, TextRun } =
-    await import("docx");
-  const children = [
+  const {
+    Document,
+    HeadingLevel,
+    ImageRun,
+    Packer,
+    Paragraph,
+    Table,
+    TableCell,
+    TableRow,
+    TextRun,
+    WidthType,
+  } = await import("docx");
+  const children: Array<
+    InstanceType<typeof Paragraph> | InstanceType<typeof Table>
+  > = [
     new Paragraph({
       children: [
         new TextRun({
@@ -85,19 +98,84 @@ export async function createWordDocument(
       );
     }
 
-    for (const paragraph of section.text
-      .split(/\n{1,}/)
-      .filter((line) => line.trim())) {
+    const blocks =
+      section.blocks ??
+      section.text
+        .split(/\n+/)
+        .filter((paragraph) => paragraph.trim())
+        .map((text) => ({ type: "paragraph" as const, text }));
+    for (const block of blocks) {
+      if (block.type === "table") {
+        children.push(
+          new Table({
+            width: { size: 100, type: WidthType.PERCENTAGE },
+            rows: block.rows.map(
+              (row, rowIndex) =>
+                new TableRow({
+                  children: row.map(
+                    (cell) =>
+                      new TableCell({
+                        children: [
+                          new Paragraph({
+                            children: [
+                              new TextRun({
+                                text: cell,
+                                font: "Arial",
+                                size: 20,
+                                color: "343A35",
+                                bold: block.hasHeader && rowIndex === 0,
+                              }),
+                            ],
+                          }),
+                        ],
+                      }),
+                  ),
+                }),
+            ),
+          }),
+        );
+        continue;
+      }
+
+      if (block.type === "heading") {
+        const heading = [
+          HeadingLevel.HEADING_1,
+          HeadingLevel.HEADING_2,
+          HeadingLevel.HEADING_3,
+          HeadingLevel.HEADING_4,
+          HeadingLevel.HEADING_5,
+          HeadingLevel.HEADING_6,
+        ][Math.min(Math.max(block.level, 1), 6) - 1];
+        children.push(
+          new Paragraph({
+            text: block.text,
+            heading,
+            keepNext: true,
+          }),
+        );
+        continue;
+      }
+
+      const isListItem = block.type === "list-item";
+      const level = isListItem ? Math.min(block.level, 5) : 0;
       children.push(
         new Paragraph({
           children: [
             new TextRun({
-              text: paragraph,
+              text: block.text,
               font: "Arial",
               size: 22,
               color: "343A35",
             }),
           ],
+          bullet: isListItem && !block.ordered ? { level } : undefined,
+          numbering:
+            isListItem && block.ordered
+              ? { reference: "scriptorium-ordered-list", level }
+              : undefined,
+          indent: isListItem
+            ? { left: (level + 1) * 360, hanging: 180 }
+            : undefined,
           spacing: { after: 180, line: 360 },
         }),
       );
@@ -106,6 +184,19 @@ export async function createWordDocument(
 
   return Packer.toBlob(
     new Document({
+      numbering: {
+        config: [
+          {
+            reference: "scriptorium-ordered-list",
+            levels: Array.from({ length: 6 }, (_, level) => ({
+              level,
+              format: "decimal",
+              text: `%${level + 1}.`,
+              alignment: "start",
+            })),
+          },
+        ],
+      },
       styles: {
         default: {
           document: {

@@ -20,15 +20,17 @@ Office-to-PDF and Office-to-Office conversions create a new document with a
 consistent Scriptorium type style, clear headings and readable spacing. They
 do not reproduce the source document’s exact design, layout, fonts, forms or
 animations. Supported embedded images are retained on additional pages or
-slides. PowerPoint chart values available in the file’s cached data are
-included as text; chart visuals and complex layouts may differ.
+slides. Word headings, lists and tables are reconstructed as formatted
+elements where detected. PowerPoint chart values available in the file’s
+cached data are included as text; chart visuals and complex layouts may differ.
 
 PDF-to-Word includes each original page as an image followed by editable
-extracted text. PDF-to-PowerPoint keeps the original page image on each slide
-and places extracted text in its speaker notes. PDF text extraction does not
-include OCR: scanned or image-only pages are preserved visually but cannot be
-converted to editable text. Word headers, footers, footnotes and endnotes, as
-well as PowerPoint speaker notes, are included in extracted text.
+extracted text. PDF-to-PowerPoint pairs each original page image with editable
+extracted text on the slide and includes the text in its speaker notes. PDF
+text extraction does not include OCR: scanned or image-only pages are
+preserved visually but cannot be converted to editable text. Word headers,
+footers, footnotes and endnotes, as well as PowerPoint speaker notes, are
+included in extracted text.
 PDF compression rasterises pages, which removes selectable text, forms, links,
 and other interactive or accessibility features. Review the source and output
 before relying on a converted document.

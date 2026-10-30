@@ -1723,7 +1723,7 @@ const categoryIcons: Record<string, string> = {
     }
 
     nav a:nth-child(2) {
-      display: none;
+      display: inline;
     }
 
     .topbar .wordmark {
@@ -1964,8 +1964,34 @@ const categoryIcons: Record<string, string> = {
   }
 
   @media (max-width: 370px) {
+    .topbar {
+      gap: 8px;
+      padding-right: 12px;
+      padding-left: 12px;
+    }
+
+    .topbar .wordmark {
+      gap: 5px;
+      font-size: 14px;
+    }
+
+    .topbar .brand-mark {
+      width: 24px;
+      height: 24px;
+      font-size: 17px;
+    }
+
     nav {
       gap: 8px;
+      font-size: 9px;
+    }
+
+    nav a:nth-child(2) {
+      display: inline;
+    }
+
+    .topbar .header-button {
+      padding: 8px;
     }
 
     .hero-proof {

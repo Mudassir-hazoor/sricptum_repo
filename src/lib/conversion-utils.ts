@@ -47,7 +47,7 @@ export const TOOLS = {
     outputFormat: "PDF",
     maxFiles: 1,
     detail:
-      "Editable text is formatted in a clean PDF layout, and supported embedded images are retained on separate pages. Original Word layout is not reproduced.",
+      "A clean PDF layout retains headings, paragraphs, lists and tables where detected. Supported embedded images are included on separate pages; the original Word page design is not reproduced.",
   },
   "powerpoint-to-word": {
     title: "PowerPoint to Word",
@@ -66,7 +66,7 @@ export const TOOLS = {
     outputFormat: "PPTX",
     maxFiles: 1,
     detail:
-      "Editable text is organized into clean slides, and supported embedded images are retained on additional slides. Original Word layout is not reproduced.",
+      "Headings, paragraphs, lists and tables are arranged into clean editable slides. Supported embedded images are retained on additional slides.",
   },
   "powerpoint-to-pdf": {
     title: "PowerPoint to PDF",
@@ -85,7 +85,7 @@ export const TOOLS = {
     outputFormat: "PPTX",
     maxFiles: 1,
     detail:
-      "Creates editable text slides and retains the original PDF pages as slide images. Scanned-page text is not OCR-converted.",
+      "Each slide pairs the original PDF page image with editable extracted text; long pages continue on text slides. Full text is also in speaker notes. Scanned-page text is not OCR-converted.",
   },
   "compress-pdf": {
     title: "Compress PDF",

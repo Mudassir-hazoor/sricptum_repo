@@ -1,7 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 import JSZip from "jszip";
+import { DOMParser } from "@xmldom/xmldom";
 import {
   Document,
+  HeadingLevel,
   ImageRun,
   Packer,
   Paragraph,
@@ -19,7 +21,13 @@ import {
   splitTextIntoSlides,
   validateInputFiles,
 } from "./conversion-utils";
-import { extractPdfPageText, extractWordContent } from "./document-extraction";
+import {
+  extractPdfPageText,
+  extractWordContent,
+  parseWordHtml,
+  splitDocumentBlocksIntoSlides,
+  structurePlainText,
+} from "./document-extraction";
 import { createWordDocument } from "./word-document";
 
 function makeFile(name: string, size = 1): File {
@@ -48,6 +56,107 @@ describe("document conversion helpers", () => {
     const slides = splitTextIntoSlides("one two three four five", 9);
     expect(slides).toEqual(["one two", "three", "four five"]);
     expect(slides.every((slide) => slide.length <= 9)).toBe(true);
+  });
+
+  it("preserves headings, lists and tables as structured Word blocks", () => {
+    vi.stubGlobal("DOMParser", DOMParser);
+    try {
+      expect(
+        parseWordHtml(
+          "<h1>Executive summary</h1><p>Project status.</p><ul><li>First action</li><li>Second action<ol><li>Follow up</li></ol></li></ul><table><tr><th>Metric</th><th>Result</th></tr><tr><td>Completion</td><td>100%</td></tr></table>",
+        ),
+      ).toEqual([
+        { type: "heading", text: "Executive summary", level: 1 },
+        { type: "paragraph", text: "Project status." },
+        { type: "list-item", text: "First action", level: 0, ordered: false },
+        { type: "list-item", text: "Second action", level: 0, ordered: false },
+        { type: "list-item", text: "Follow up", level: 1, ordered: true },
+        {
+          type: "table",
+          rows: [
+            ["Metric", "Result"],
+            ["Completion", "100%"],
+          ],
+          hasHeader: true,
+        },
+      ]);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("splits structured content at headings without losing table rows", () => {
+    expect(
+      splitDocumentBlocksIntoSlides([
+        { type: "heading", text: "Summary", level: 1 },
+        { type: "paragraph", text: "Short overview." },
+        { type: "heading", text: "Results", level: 1 },
+        {
+          type: "table",
+          rows: [
+            ["Metric", "Value"],
+            ["Accuracy", "98%"],
+          ],
+          hasHeader: true,
+        },
+      ]),
+    ).toEqual([
+      [
+        { type: "heading", text: "Summary", level: 1 },
+        { type: "paragraph", text: "Short overview." },
+      ],
+      [
+        { type: "heading", text: "Results", level: 1 },
+        {
+          type: "table",
+          rows: [
+            ["Metric", "Value"],
+            ["Accuracy", "98%"],
+          ],
+          hasHeader: true,
+        },
+      ],
+    ]);
+  });
+
+  it("keeps oversized paragraphs and tables complete across slides", () => {
+    const text = `${"Alpha beta gamma delta. ".repeat(4)}Omega`;
+    const rows = [
+      ["Metric", "Value"],
+      ...Array.from({ length: 10 }, (_, index) => [
+        `Metric ${index + 1}`,
+        `Value ${index + 1}`,
+      ]),
+    ];
+    const slides = splitDocumentBlocksIntoSlides(
+      [
+        { type: "heading", text: "Summary", level: 1 },
+        { type: "paragraph", text },
+        { type: "table", rows, hasHeader: true },
+      ],
+      24,
+    );
+    const paragraphs = slides.flatMap((slide) =>
+      slide
+        .filter((block) => block.type === "paragraph")
+        .map((block) => block.text),
+    );
+    const tables = slides.flat().filter((block) => block.type === "table");
+    const outputRows = [
+      tables[0]?.rows[0],
+      ...tables.flatMap((block) => block.rows.slice(1)),
+    ];
+
+    expect(slides[0][0]).toEqual({
+      type: "heading",
+      text: "Summary",
+      level: 1,
+    });
+    expect(paragraphs.join(" ")).toBe(text);
+    expect(
+      tables.every((table) => table.rows[0].join("|") === "Metric|Value"),
+    ).toBe(true);
+    expect(outputRows).toEqual(rows);
   });
 
   it("handles single words longer than a slide", () => {
@@ -134,6 +243,30 @@ describe("document conversion helpers", () => {
       {
         heading: "Page 1",
         text: "First page text.",
+        blocks: [
+          { type: "heading", text: "Key results", level: 1 },
+          {
+            type: "list-item",
+            text: "First action",
+            level: 0,
+            ordered: false,
+          },
+          {
+            type: "list-item",
+            text: "Second action",
+            level: 0,
+            ordered: true,
+          },
+          {
+            type: "table",
+            rows: [
+              ["Metric", "Value"],
+              ["Completion", "100%"],
+            ],
+            hasHeader: true,
+          },
+          { type: "paragraph", text: "First page text." },
+        ],
         image: {
           data: imageData,
           contentType: "image/png",
@@ -150,6 +283,11 @@ describe("document conversion helpers", () => {
     expect(documentXml).toContain("SCRIPTORIUM");
     expect(documentXml).toContain("First page text.");
     expect(documentXml).toContain("Second page text.");
+    expect(documentXml).toContain("Key results");
+    expect(documentXml).toContain("First action");
+    expect(documentXml).toContain("Second action");
+    expect(documentXml).toContain("<w:numPr>");
+    expect(documentXml).toContain("<w:tbl>");
     expect(documentXml).toContain("<w:pageBreakBefore");
     expect(
       Object.keys(archive.files).some((fileName) =>
@@ -187,6 +325,19 @@ describe("document conversion helpers", () => {
     ).toBe("Quarterly results\nRevenue increased");
   });
 
+  it("reconstructs headings and list items from extracted PDF text", () => {
+    expect(
+      structurePlainText(
+        "QUARTERLY RESULTS\nRevenue increased by 12%.\n• Expand the team\n2. Review the plan",
+      ),
+    ).toEqual([
+      { type: "heading", text: "QUARTERLY RESULTS", level: 1 },
+      { type: "paragraph", text: "Revenue increased by 12%." },
+      { type: "list-item", text: "Expand the team", level: 0, ordered: false },
+      { type: "list-item", text: "Review the plan", level: 0, ordered: true },
+    ]);
+  });
+
   it("extracts Word paragraphs and table content and rejects text-free files", async () => {
     const imageData = Uint8Array.from(
       Buffer.from(
@@ -194,6 +345,7 @@ describe("document conversion helpers", () => {
         "base64",
       ),
     );
+    vi.stubGlobal("DOMParser", DOMParser);
     vi.stubGlobal("createImageBitmap", async () => ({
       width: 1,
       height: 1,
@@ -204,8 +356,15 @@ describe("document conversion helpers", () => {
         sections: [
           {
             children: [
-              new Paragraph("Executive summary"),
+              new Paragraph({
+                text: "Executive summary",
+                heading: HeadingLevel.HEADING_1,
+              }),
               new Paragraph("The project met its targets."),
+              new Paragraph({
+                text: "Review the findings",
+                bullet: { level: 0 },
+              }),
               new Table({
                 rows: [
                   new TableRow({
@@ -267,6 +426,17 @@ describe("document conversion helpers", () => {
       expect(extracted.text).toContain("The project met its targets.");
       expect(extracted.text).toContain("Metric");
       expect(extracted.text).toContain("100%");
+      expect(extracted.blocks).toContainEqual({
+        type: "heading",
+        text: "Executive summary",
+        level: 1,
+      });
+      expect(extracted.blocks).toContainEqual({
+        type: "list-item",
+        text: "Review the findings",
+        level: 0,
+        ordered: false,
+      });
       expect(extracted.images).toHaveLength(1);
       expect(extracted.images[0].contentType).toBe("image/png");
       expect(imageOnly.text).toContain("No selectable text");

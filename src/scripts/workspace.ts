@@ -17,6 +17,9 @@ import {
   extractPdfPageText,
   extractWordContent,
   normalizeEmbeddedImage,
+  structurePlainText,
+  splitDocumentBlocksIntoSlides,
+  type DocumentBlock,
   type ExtractedImage,
 } from "../lib/document-extraction";
 import {
@@ -312,7 +315,11 @@ if (toolButtons.length > 0) {
     file: File,
     maxPages: number,
     report: (progressValue: number, label: string) => void,
-  ): Promise<{ pages: string[]; images: ExtractedImage[] }> {
+  ): Promise<{
+    pages: string[];
+    blocks: DocumentBlock[][];
+    images: ExtractedImage[];
+  }> {
     const { pdf, close } = await loadPdf(file, maxPages);
     try {
       const pages: string[] = [];
@@ -365,15 +372,25 @@ if (toolButtons.length > 0) {
           );
         }
       }
-      return { pages, images };
+      return {
+        pages,
+        blocks: pages.map((text) =>
+          structurePlainText(
+            text || "(No selectable text found on this page.)",
+          ),
+        ),
+        images,
+      };
     } finally {
       await close();
     }
   }
 
-  async function extractSlides(
-    file: File,
-  ): Promise<{ slides: string[]; images: ExtractedImage[] }> {
+  async function extractSlides(file: File): Promise<{
+    slides: string[];
+    blocks: DocumentBlock[][];
+    images: ExtractedImage[];
+  }> {
     const { default: JSZip } = await import("jszip");
     const zip = await JSZip.loadAsync(await file.arrayBuffer(), {
       checkCRC32: true,
@@ -432,6 +449,7 @@ if (toolButtons.length > 0) {
     );
 
     const slides: string[] = [];
+    const slideBlocks: DocumentBlock[][] = [];
     const images: ExtractedImage[] = [];
     const includedImages = new Set<string>();
     for (const [index, path] of entries.entries()) {
@@ -441,13 +459,107 @@ if (toolButtons.length > 0) {
       const xml = new DOMParser().parseFromString(xmlText, "application/xml");
       if (xml.querySelector("parsererror"))
         throw new Error(`${file.name} has an unreadable slide.`);
-      const slideText = Array.from(xml.getElementsByTagNameNS("*", "p"))
-        .map((paragraph) =>
-          Array.from(paragraph.getElementsByTagNameNS("*", "t"))
-            .map((run) => run.textContent ?? "")
-            .join(""),
+      const blocks: DocumentBlock[] = [];
+      const handledTables = new Set<Element>();
+      const paragraphs = Array.from(xml.getElementsByTagNameNS("*", "p"));
+      for (const paragraph of paragraphs) {
+        let parent = paragraph.parentNode;
+        let table: Element | undefined;
+        while (parent && parent.nodeType === 1) {
+          const element = parent as Element;
+          if (element.localName === "tbl") {
+            table = element;
+            break;
+          }
+          parent = parent.parentNode;
+        }
+        if (table) {
+          if (handledTables.has(table)) continue;
+          handledTables.add(table);
+          const rows = Array.from(table.getElementsByTagNameNS("*", "tr"))
+            .map((row) =>
+              Array.from(row.getElementsByTagNameNS("*", "tc")).map((cell) =>
+                Array.from(cell.getElementsByTagNameNS("*", "p"))
+                  .map((cellParagraph) =>
+                    Array.from(cellParagraph.getElementsByTagNameNS("*", "t"))
+                      .map((run) => run.textContent ?? "")
+                      .join(""),
+                  )
+                  .join("\n"),
+              ),
+            )
+            .filter((row) => row.length > 0);
+          if (rows.length > 0) {
+            blocks.push({
+              type: "table",
+              rows,
+              hasHeader:
+                table
+                  .getElementsByTagNameNS("*", "tblPr")[0]
+                  ?.getAttribute("firstRow") === "1",
+            });
+          }
+          continue;
+        }
+
+        const text = Array.from(paragraph.getElementsByTagNameNS("*", "t"))
+          .map((run) => run.textContent ?? "")
+          .join("")
+          .trim();
+        if (!text) continue;
+        const paragraphProperties = paragraph.getElementsByTagNameNS(
+          "*",
+          "pPr",
+        )[0];
+        const isBullet =
+          (paragraphProperties?.getElementsByTagNameNS("*", "buChar").length ??
+            0) > 0;
+        const isNumbered =
+          (paragraphProperties?.getElementsByTagNameNS("*", "buAutoNum")
+            .length ?? 0) > 0;
+        if (isBullet || isNumbered) {
+          blocks.push({
+            type: "list-item",
+            text,
+            level: Math.min(
+              Math.max(
+                Number(paragraphProperties?.getAttribute("lvl") ?? 0),
+                0,
+              ),
+              5,
+            ),
+            ordered: isNumbered,
+          });
+          continue;
+        }
+
+        let placeholderType: string | null = null;
+        let shape: Node | null = paragraph.parentNode;
+        while (shape && shape.nodeType === 1) {
+          const element = shape as Element;
+          const placeholder = element.getElementsByTagNameNS("*", "ph")[0];
+          if (placeholder) {
+            placeholderType = placeholder.getAttribute("type");
+            break;
+          }
+          shape = shape.parentNode;
+        }
+        if (placeholderType === "title" || placeholderType === "ctrTitle") {
+          blocks.push({ type: "heading", text, level: 1 });
+        } else if (placeholderType === "subTitle") {
+          blocks.push({ type: "heading", text, level: 2 });
+        } else {
+          blocks.push({ type: "paragraph", text });
+        }
+      }
+      const slideText = blocks
+        .map((block) =>
+          block.type === "table"
+            ? block.rows.map((row) => row.join(" | ")).join("\n")
+            : block.type === "list-item"
+              ? `${"  ".repeat(block.level)}${block.ordered ? "1." : "•"} ${block.text}`
+              : block.text,
         )
-        .filter((paragraph) => paragraph.trim())
         .join("\n");
       const slideTextParts = slideText.trim() ? [slideText.trim()] : [];
       const slideName = path.split("/").pop();
@@ -456,6 +568,7 @@ if (toolButtons.length > 0) {
         : undefined;
       if (!slideRelationships) {
         slides.push(slideTextParts.join("\n\n"));
+        slideBlocks.push(blocks);
         continue;
       }
       const relationshipsXml = new DOMParser().parseFromString(
@@ -511,7 +624,9 @@ if (toolButtons.length > 0) {
             .map((value) => value.textContent?.trim() ?? "")
             .filter(Boolean);
           if (values.length > 0) {
-            slideTextParts.push(`Chart data: ${values.join(" | ")}`);
+            const chartData = `Chart data: ${values.join(" | ")}`;
+            slideTextParts.push(chartData);
+            blocks.push({ type: "paragraph", text: chartData });
           }
           continue;
         }
@@ -550,6 +665,14 @@ if (toolButtons.length > 0) {
             .filter((paragraph) => paragraph.trim());
           if (notes.length > 0) {
             slideTextParts.push(`Speaker notes:\n${notes.join("\n")}`);
+            blocks.push({
+              type: "heading",
+              text: "Speaker notes",
+              level: 2,
+            });
+            blocks.push(
+              ...notes.map((text) => ({ type: "paragraph" as const, text })),
+            );
           }
           continue;
         }
@@ -596,6 +719,7 @@ if (toolButtons.length > 0) {
         }
       }
       slides.push(slideTextParts.join("\n\n"));
+      slideBlocks.push(blocks);
     }
     if (!slides.some((slide) => slide.length > 0) && images.length === 0) {
       throw new Error(`${file.name} contains no extractable slide text.`);
@@ -605,13 +729,27 @@ if (toolButtons.length > 0) {
         (slide) =>
           slide || "(No selectable text on this slide. See retained images.)",
       ),
+      blocks: slideBlocks.map((blocks) =>
+        blocks.length > 0
+          ? blocks
+          : [
+              {
+                type: "paragraph",
+                text: "(No selectable text on this slide. See retained images.)",
+              },
+            ],
+      ),
       images,
     };
   }
 
   async function createTextPdf(
     title: string,
-    sections: Array<{ heading?: string; text: string }>,
+    sections: Array<{
+      heading?: string;
+      text: string;
+      blocks?: DocumentBlock[];
+    }>,
     images: ExtractedImage[] = [],
   ): Promise<Blob> {
     const { PDFDocument, PageSizes, StandardFonts, rgb } =
@@ -727,6 +865,93 @@ if (toolButtons.length > 0) {
       }
     };
 
+    const drawTable = (rows: string[][], hasHeader: boolean): void => {
+      const columnCount = Math.max(...rows.map((row) => row.length));
+      const cellWidth = usableWidth / columnCount;
+      const padding = 5;
+      const lineHeight = 12;
+      const wrapCell = (value: string): string[] => {
+        const lines: string[] = [];
+        let line = "";
+        for (const word of value.split(/\s+/).filter(Boolean)) {
+          let segment = word;
+          while (
+            bodyFont.widthOfTextAtSize(segment, 8.5) >
+            cellWidth - 2 * padding
+          ) {
+            let prefix = "";
+            for (const character of Array.from(segment)) {
+              const next = prefix + character;
+              if (
+                prefix &&
+                bodyFont.widthOfTextAtSize(next, 8.5) > cellWidth - 2 * padding
+              ) {
+                break;
+              }
+              prefix = next;
+            }
+            if (!prefix) break;
+            lines.push(prefix);
+            segment = segment.slice(prefix.length);
+          }
+          const nextLine = line ? `${line} ${segment}` : segment;
+          if (
+            line &&
+            bodyFont.widthOfTextAtSize(nextLine, 8.5) > cellWidth - 2 * padding
+          ) {
+            lines.push(line);
+            line = segment;
+          } else {
+            line = nextLine;
+          }
+        }
+        if (line) lines.push(line);
+        return lines.length > 0 ? lines : [""];
+      };
+
+      for (const [rowIndex, row] of rows.entries()) {
+        const cellLines = Array.from({ length: columnCount }, (_, column) =>
+          wrapCell(row[column] ?? ""),
+        );
+        const rowHeight =
+          Math.max(...cellLines.map((lines) => lines.length)) * lineHeight +
+          padding * 2;
+        if (rowHeight > pageHeight - margin * 2) {
+          throw new Error(
+            "A table row is too large to fit safely in the generated PDF.",
+          );
+        }
+        ensureSpace(rowHeight);
+        const top = cursor;
+        for (let column = 0; column < columnCount; column += 1) {
+          const x = margin + column * cellWidth;
+          page.drawRectangle({
+            x,
+            y: top - rowHeight,
+            width: cellWidth,
+            height: rowHeight,
+            borderColor: rgb(0.82, 0.86, 0.82),
+            borderWidth: 0.5,
+            color:
+              hasHeader && rowIndex === 0
+                ? rgb(0.92, 0.96, 0.92)
+                : rgb(1, 1, 1),
+          });
+          cellLines[column].forEach((line, lineIndex) => {
+            page.drawText(line, {
+              x: x + padding,
+              y: top - padding - 8.5 - lineIndex * lineHeight,
+              font: hasHeader && rowIndex === 0 ? headingFont : bodyFont,
+              size: 8.5,
+              color: rgb(0.2, 0.22, 0.2),
+            });
+          });
+        }
+        cursor -= rowHeight;
+      }
+      cursor -= 8;
+    };
+
     try {
       drawWrappedText(title, titleFont, 24, rgb(0.13, 0.23, 0.18), 32, 16);
       for (const section of sections) {
@@ -740,14 +965,60 @@ if (toolButtons.length > 0) {
             5,
           );
         }
-        drawWrappedText(
-          section.text,
-          bodyFont,
-          10.5,
-          rgb(0.2, 0.22, 0.2),
-          15,
-          5,
-        );
+        if (section.blocks) {
+          const orderedIndices = new Map<number, number>();
+          for (const block of section.blocks) {
+            if (block.type === "table") {
+              orderedIndices.clear();
+              drawTable(block.rows, block.hasHeader);
+            } else if (block.type === "heading") {
+              orderedIndices.clear();
+              drawWrappedText(
+                block.text,
+                headingFont,
+                block.level < 3 ? 14 : 12,
+                rgb(0.23, 0.41, 0.29),
+                block.level < 3 ? 19 : 16,
+                5,
+              );
+            } else if (block.type === "list-item") {
+              const level = Math.min(block.level, 4);
+              const orderedIndex = block.ordered
+                ? (orderedIndices.get(level) ?? 0) + 1
+                : 0;
+              if (block.ordered) orderedIndices.set(level, orderedIndex);
+              else orderedIndices.delete(level);
+              const prefix = block.ordered ? `${orderedIndex}.` : "•";
+              drawWrappedText(
+                `${"  ".repeat(level)}${prefix} ${block.text}`,
+                bodyFont,
+                10.5,
+                rgb(0.2, 0.22, 0.2),
+                15,
+                3,
+              );
+            } else {
+              orderedIndices.clear();
+              drawWrappedText(
+                block.text,
+                bodyFont,
+                10.5,
+                rgb(0.2, 0.22, 0.2),
+                15,
+                5,
+              );
+            }
+          }
+        } else {
+          drawWrappedText(
+            section.text,
+            bodyFont,
+            10.5,
+            rgb(0.2, 0.22, 0.2),
+            15,
+            5,
+          );
+        }
       }
     } catch (error) {
       if (error instanceof Error && error.message.startsWith("This PDF export"))
@@ -851,15 +1122,25 @@ if (toolButtons.length > 0) {
     slides: string[],
     images: ExtractedImage[] = [],
     useImageSlidesWithNotes = false,
+    contentSlides?: DocumentBlock[][],
+    pageTextGroups?: string[][],
   ): Promise<Blob> {
-    if (useImageSlidesWithNotes && slides.length !== images.length) {
+    if (
+      useImageSlidesWithNotes &&
+      (!pageTextGroups ||
+        slides.length !== images.length ||
+        pageTextGroups.length !== images.length ||
+        pageTextGroups.some((group) => group.length === 0))
+    ) {
       throw new Error(
         "The original page images and extracted text could not be matched.",
       );
     }
+    const textSlideCount = contentSlides?.length ?? slides.length;
     const outputSlideCount = useImageSlidesWithNotes
-      ? images.length
-      : slides.length + images.length;
+      ? (pageTextGroups?.reduce((total, group) => total + group.length, 0) ??
+        images.length)
+      : textSlideCount + images.length;
     if (outputSlideCount > MAX_POWERPOINT_SLIDES) {
       throw new Error(
         `This conversion would create more than ${MAX_POWERPOINT_SLIDES} slides when preserving the extracted text and images. Convert fewer pages or images at a time.`,
@@ -867,12 +1148,80 @@ if (toolButtons.length > 0) {
     }
     const { default: PptxGenJS } = await import("pptxgenjs");
     const presentation = new PptxGenJS();
+    type PresentationSlide = ReturnType<
+      InstanceType<typeof PptxGenJS>["addSlide"]
+    >;
     presentation.layout = "LAYOUT_WIDE";
     presentation.author = "Scriptorium";
     presentation.subject = "Text extracted and reorganised in Scriptorium";
     presentation.title = title;
 
-    const textSlides = useImageSlidesWithNotes ? [] : slides;
+    const addStructuredText = (
+      slide: PresentationSlide,
+      text: string,
+      frame: {
+        x: number;
+        y: number;
+        w: number;
+        h: number;
+        fontSize: number;
+        charsPerLine: number;
+      },
+    ): void => {
+      let cursor = frame.y;
+      const orderedIndices = new Map<number, number>();
+      for (const block of structurePlainText(text)) {
+        const isHeading = block.type === "heading";
+        const isListItem = block.type === "list-item";
+        const level = isListItem ? Math.min(block.level, 4) : 0;
+        const content =
+          isListItem && block.ordered
+            ? `${(orderedIndices.get(level) ?? 0) + 1}. ${block.text}`
+            : block.text;
+        if (isListItem && block.ordered) {
+          orderedIndices.set(level, (orderedIndices.get(level) ?? 0) + 1);
+        } else if (isListItem) {
+          orderedIndices.delete(level);
+        } else {
+          orderedIndices.clear();
+        }
+
+        const lines = Math.max(
+          1,
+          Math.ceil(content.length / frame.charsPerLine),
+        );
+        const fontSize = isHeading ? frame.fontSize + 2 : frame.fontSize;
+        const height = isHeading
+          ? 0.32 * lines
+          : Math.min(1.3, 0.16 + (lines * fontSize * 1.35) / 72);
+        const indent = level * 0.18;
+        if (cursor + height > frame.y + frame.h) {
+          throw new Error(
+            "The extracted PDF text does not fit in the available presentation layout.",
+          );
+        }
+        slide.addText(content, {
+          x: frame.x + indent,
+          y: cursor,
+          w: frame.w - indent,
+          h: height,
+          fontFace: isHeading ? "Aptos Display" : "Aptos",
+          fontSize,
+          bold: isHeading,
+          color: isHeading ? "2F3B2E" : "33372F",
+          bullet:
+            isListItem && !block.ordered
+              ? { indent: 18 + level * 18 }
+              : undefined,
+          margin: 0,
+          breakLine: false,
+          fit: "shrink",
+        });
+        cursor += height + (isHeading ? 0.05 : 0.04);
+      }
+    };
+
+    const textSlides = useImageSlidesWithNotes || contentSlides ? [] : slides;
     textSlides.forEach((text, index) => {
       const slide = presentation.addSlide();
       slide.background = { color: "F7F6F2" };
@@ -933,6 +1282,109 @@ if (toolButtons.length > 0) {
         breakLine: false,
       });
     });
+    contentSlides?.forEach((blocks, index) => {
+      const slide = presentation.addSlide();
+      slide.background = { color: "F7F6F2" };
+      slide.addText(title, {
+        x: 0.7,
+        y: 0.35,
+        w: 11.9,
+        h: 0.3,
+        fontFace: "Aptos",
+        fontSize: 9,
+        color: "75816D",
+        margin: 0,
+      });
+      slide.addShape(presentation.ShapeType.line, {
+        x: 0.7,
+        y: 0.85,
+        w: 11.9,
+        h: 0,
+        line: { color: "DEDFD8", width: 1 },
+      });
+
+      let cursor = 1.05;
+      const orderedIndices = new Map<number, number>();
+      for (const block of blocks) {
+        if (block.type === "table") {
+          orderedIndices.clear();
+          const tableRows = block.rows.map((row, rowIndex) =>
+            row.map((text) => ({
+              text,
+              options: {
+                bold: block.hasHeader && rowIndex === 0,
+                color: "33372F",
+                fill: {
+                  color:
+                    block.hasHeader && rowIndex === 0 ? "EAF2EB" : "FFFFFF",
+                },
+              },
+            })),
+          );
+          slide.addTable(tableRows, {
+            x: 0.8,
+            y: cursor,
+            w: 11.7,
+            fontFace: "Aptos",
+            fontSize: 12,
+            color: "33372F",
+            border: { type: "solid", color: "D8E1D7", pt: 0.75 },
+            margin: 0.08,
+          });
+          cursor += Math.max(0.55, block.rows.length * 0.4) + 0.15;
+          continue;
+        }
+
+        const isHeading = block.type === "heading";
+        const isListItem = block.type === "list-item";
+        const level = isListItem ? Math.min(block.level, 4) : 0;
+        const text =
+          isListItem && block.ordered
+            ? `${(orderedIndices.get(level) ?? 0) + 1}. ${block.text}`
+            : block.text;
+        if (isListItem && block.ordered) {
+          orderedIndices.set(level, (orderedIndices.get(level) ?? 0) + 1);
+        } else if (isListItem) {
+          orderedIndices.delete(level);
+        } else {
+          orderedIndices.clear();
+        }
+        const lines = Math.max(1, Math.ceil(block.text.length / 105));
+        const height = isHeading ? 0.42 : Math.min(1.3, 0.2 + lines * 0.25);
+        const indent = level * 0.24;
+        slide.addText(text, {
+          x: 0.85 + indent,
+          y: cursor,
+          w: 11.6 - indent,
+          h: height,
+          fontFace: isHeading ? "Aptos Display" : "Aptos",
+          fontSize:
+            block.type === "heading" ? (block.level === 1 ? 21 : 16) : 14,
+          bold: isHeading,
+          color: isHeading ? "2F3B2E" : "33372F",
+          bullet:
+            isListItem && !block.ordered
+              ? { indent: 18 + level * 18 }
+              : undefined,
+          margin: 0,
+          breakLine: false,
+          fit: "shrink",
+        });
+        cursor += height + (isHeading ? 0.08 : 0.1);
+      }
+
+      slide.addText(`SCRIPTORIUM  ·  ${index + 1}`, {
+        x: 0.7,
+        y: 7.12,
+        w: 11.9,
+        h: 0.2,
+        fontFace: "Aptos",
+        fontSize: 8,
+        charSpacing: 0.7,
+        color: "8B8D83",
+        margin: 0,
+      });
+    });
     for (const [index, image] of images.entries()) {
       const slide = presentation.addSlide();
       slide.background = { color: "F7F6F2" };
@@ -989,21 +1441,101 @@ if (toolButtons.length > 0) {
         encoded.map((chunk) => String.fromCharCode(...chunk)).join(""),
       );
       const data = `data:${outputImage.contentType};base64,${base64}`;
+      const imageWidth = useImageSlidesWithNotes ? 4.7 : 11.9;
+      const imageHeight = useImageSlidesWithNotes ? 5.7 : 6.1;
       const scale = Math.min(
-        11.9 / outputImage.width,
-        6.1 / outputImage.height,
+        imageWidth / outputImage.width,
+        imageHeight / outputImage.height,
       );
       const width = outputImage.width * scale;
       const height = outputImage.height * scale;
       slide.addImage({
         data,
-        x: (13.333 - width) / 2,
-        y: 1.05 + (6.1 - height) / 2,
+        x: useImageSlidesWithNotes
+          ? 0.7 + (imageWidth - width) / 2
+          : (13.333 - width) / 2,
+        y: 1.05 + (imageHeight - height) / 2,
         w: width,
         h: height,
       });
       if (useImageSlidesWithNotes && slides[index]) {
+        const textSegments = pageTextGroups?.[index] ?? [slides[index]];
+        slide.addText("Editable extracted text", {
+          x: 5.7,
+          y: 1.05,
+          w: 6.1,
+          h: 0.4,
+          fontFace: "Aptos Display",
+          fontSize: 17,
+          bold: true,
+          color: "2F3B2E",
+          margin: 0,
+        });
+        addStructuredText(slide, textSegments[0], {
+          x: 5.7,
+          y: 1.55,
+          w: 6.1,
+          h: 5.2,
+          fontSize: 12,
+          charsPerLine: 62,
+        });
         slide.addNotes(slides[index]);
+        for (const [continuationIndex, text] of textSegments
+          .slice(1)
+          .entries()) {
+          const continuation = presentation.addSlide();
+          continuation.background = { color: "F7F6F2" };
+          continuation.addText(title, {
+            x: 0.7,
+            y: 0.35,
+            w: 11.9,
+            h: 0.3,
+            fontFace: "Aptos",
+            fontSize: 9,
+            color: "75816D",
+            margin: 0,
+          });
+          continuation.addShape(presentation.ShapeType.line, {
+            x: 0.7,
+            y: 0.85,
+            w: 11.9,
+            h: 0,
+            line: { color: "DEDFD8", width: 1 },
+          });
+          continuation.addText(
+            `Page ${index + 1} · Continued ${continuationIndex + 1}`,
+            {
+              x: 0.7,
+              y: 0.98,
+              w: 11.9,
+              h: 0.45,
+              fontFace: "Aptos Display",
+              fontSize: 22,
+              bold: true,
+              color: "2F3B2E",
+              margin: 0,
+            },
+          );
+          addStructuredText(continuation, text, {
+            x: 0.7,
+            y: 1.62,
+            w: 11.9,
+            h: 5.4,
+            fontSize: 16,
+            charsPerLine: 110,
+          });
+          continuation.addText("SCRIPTORIUM  ·  CONTINUED TEXT", {
+            x: 0.7,
+            y: 7.12,
+            w: 11.9,
+            h: 0.2,
+            fontFace: "Aptos",
+            fontSize: 8,
+            charSpacing: 0.7,
+            color: "8B8D83",
+            margin: 0,
+          });
+        }
       }
     }
     const output = await presentation.write({
@@ -1054,7 +1586,7 @@ if (toolButtons.length > 0) {
 
     switch (activeOperation) {
       case "pdf-to-word": {
-        const { pages, images } = await extractPdfPages(
+        const { pages, blocks, images } = await extractPdfPages(
           first,
           MAX_PDF_PAGES,
           report,
@@ -1068,6 +1600,7 @@ if (toolButtons.length > 0) {
           {
             heading: `Editable text — Page ${index + 1}`,
             text: text || "(No selectable text found on this page.)",
+            blocks: blocks[index],
           },
         ]);
         report(90, "Preparing your Word document");
@@ -1085,7 +1618,7 @@ if (toolButtons.length > 0) {
         return {
           blob: await createTextPdf(
             stem,
-            [{ text: content.text }],
+            [{ text: content.text, blocks: content.blocks }],
             content.images,
           ),
           name: `${stem}.pdf`,
@@ -1094,11 +1627,12 @@ if (toolButtons.length > 0) {
       }
       case "powerpoint-to-word": {
         report(20, "Reading PowerPoint slides");
-        const { slides, images } = await extractSlides(first);
+        const { slides, blocks, images } = await extractSlides(first);
         report(83, "Preparing your Word document");
         const sections: WordDocumentSection[] = slides.map((text, index) => ({
           heading: `Slide ${index + 1}`,
           text,
+          blocks: blocks[index],
         }));
         sections.push(
           ...images.map((image, index) => ({
@@ -1116,25 +1650,33 @@ if (toolButtons.length > 0) {
       case "word-to-powerpoint": {
         report(30, "Reading Word document");
         const content = await extractWordContent(first, first.name);
-        const slides = splitTextIntoSlides(content.text);
-        if (slides.length + content.images.length > MAX_POWERPOINT_SLIDES) {
+        const contentSlides = splitDocumentBlocksIntoSlides(content.blocks);
+        const slides = contentSlides.length;
+        if (slides + content.images.length > MAX_POWERPOINT_SLIDES) {
           throw new Error(
             `This conversion would create more than ${MAX_POWERPOINT_SLIDES} slides after preserving the extracted text and images.`,
           );
         }
-        report(78, `Creating ${slides.length} editable slides`);
+        report(78, `Creating ${slides} editable slides`);
         return {
-          blob: await savePresentation(stem, slides, content.images),
+          blob: await savePresentation(
+            stem,
+            [],
+            content.images,
+            false,
+            contentSlides,
+          ),
           name: `${stem}.pptx`,
-          detail: `${slides.length} editable text slides created, with ${content.images.length} embedded image${content.images.length === 1 ? "" : "s"} preserved on additional slides. Original Word page layout is not reproduced.`,
+          detail: `${slides} structured editable slides created with headings, lists and tables where present. ${content.images.length} embedded image${content.images.length === 1 ? " is" : "s are"} preserved on additional slides.`,
         };
       }
       case "powerpoint-to-pdf": {
         report(20, "Reading PowerPoint slides");
-        const { slides, images } = await extractSlides(first);
+        const { slides, blocks, images } = await extractSlides(first);
         const sections = slides.map((text, index) => ({
           heading: `Slide ${index + 1}`,
           text,
+          blocks: blocks[index],
         }));
         report(82, "Creating a text-first PDF");
         return {
@@ -1153,11 +1695,30 @@ if (toolButtons.length > 0) {
           (text, index) =>
             text || `(No selectable text found on page ${index + 1}.)`,
         );
-        report(82, `Creating ${slides.length} editable slides`);
+        const pageTextGroups = slides.map((text) =>
+          splitTextIntoSlides(text, 850),
+        );
+        const outputSlideCount = pageTextGroups.reduce(
+          (total, group) => total + group.length,
+          0,
+        );
+        if (outputSlideCount > MAX_POWERPOINT_SLIDES) {
+          throw new Error(
+            `The editable text requires ${outputSlideCount} slides, above the ${MAX_POWERPOINT_SLIDES}-slide limit. Convert fewer pages at a time.`,
+          );
+        }
+        report(82, `Creating ${outputSlideCount} editable slides`);
         return {
-          blob: await savePresentation(stem, slides, images, true),
+          blob: await savePresentation(
+            stem,
+            slides,
+            images,
+            true,
+            undefined,
+            pageTextGroups,
+          ),
           name: `${stem}.pptx`,
-          detail: `Each original PDF page is retained as a slide image, with its editable extracted text in the slide notes. Scanned-page text is not OCR-converted.`,
+          detail: `Each PDF page image is paired with editable extracted text; lengthy pages continue on separate text slides. Full extracted text is also included in speaker notes. Scanned-page text is not OCR-converted.`,
         };
       }
       case "compress-pdf": {

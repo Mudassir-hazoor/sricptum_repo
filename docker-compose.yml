@@ -1,9 +1,0 @@
-services:
-  scriptorium-api:
-    build:
-      context: ./backend
-    ports:
-      - "8000:8000"
-    environment:
-      ALLOWED_ORIGINS: "http://localhost:4321"
-    restart: unless-stopped

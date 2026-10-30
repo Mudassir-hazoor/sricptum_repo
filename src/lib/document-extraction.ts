@@ -15,7 +15,251 @@ export interface ExtractedImage {
 
 export interface ExtractedWordContent {
   text: string;
+  blocks: DocumentBlock[];
   images: ExtractedImage[];
+}
+
+export type DocumentBlock =
+  | { type: "paragraph"; text: string }
+  | { type: "heading"; text: string; level: number }
+  | {
+      type: "list-item";
+      text: string;
+      level: number;
+      ordered: boolean;
+    }
+  | { type: "table"; rows: string[][]; hasHeader: boolean };
+
+export type TextDocumentBlock = Exclude<DocumentBlock, { type: "table" }>;
+
+function elementChildren(node: Element): Element[] {
+  return Array.from(node.childNodes).filter(
+    (child): child is Element => child.nodeType === 1,
+  );
+}
+
+function readElementText(element: Element): string {
+  return (element.textContent ?? "").replace(/\s+/g, " ").trim();
+}
+
+function readList(list: Element, level: number, blocks: DocumentBlock[]): void {
+  const ordered = list.tagName.toLowerCase() === "ol";
+  for (const item of elementChildren(list).filter(
+    (child) => child.tagName.toLowerCase() === "li",
+  )) {
+    const textContainer = item.cloneNode(true) as Element;
+    for (const nestedList of Array.from(
+      textContainer.getElementsByTagName("ul"),
+    )) {
+      nestedList.parentNode?.removeChild(nestedList);
+    }
+    for (const nestedList of Array.from(
+      textContainer.getElementsByTagName("ol"),
+    )) {
+      nestedList.parentNode?.removeChild(nestedList);
+    }
+    const text = readElementText(textContainer);
+    if (text) blocks.push({ type: "list-item", text, level, ordered });
+    for (const nested of elementChildren(item).filter((child) =>
+      ["ul", "ol"].includes(child.tagName.toLowerCase()),
+    )) {
+      readList(nested, level + 1, blocks);
+    }
+  }
+}
+
+export function parseWordHtml(html: string): DocumentBlock[] {
+  const document = new DOMParser().parseFromString(
+    `<scriptorium>${html}</scriptorium>`,
+    "application/xml",
+  );
+  if (document.getElementsByTagName("parsererror").length > 0) {
+    throw new Error("The Word document contains unreadable formatted content.");
+  }
+
+  const blocks: DocumentBlock[] = [];
+  const visit = (element: Element): void => {
+    const tag = element.tagName.toLowerCase();
+    if (/^h[1-6]$/.test(tag)) {
+      const text = readElementText(element);
+      if (text) {
+        blocks.push({
+          type: "heading",
+          text,
+          level: Number(tag.slice(1)),
+        });
+      }
+      return;
+    }
+    if (tag === "p") {
+      const text = readElementText(element);
+      if (text) blocks.push({ type: "paragraph", text });
+      return;
+    }
+    if (tag === "ul" || tag === "ol") {
+      readList(element, 0, blocks);
+      return;
+    }
+    if (tag === "table") {
+      const rows = Array.from(element.getElementsByTagName("tr"))
+        .map((row) =>
+          elementChildren(row)
+            .filter((cell) => ["td", "th"].includes(cell.tagName.toLowerCase()))
+            .map(readElementText),
+        )
+        .filter((row) => row.length > 0);
+      if (rows.length > 0) {
+        const firstRow = element.getElementsByTagName("tr")[0];
+        const hasHeader = elementChildren(firstRow ?? element).some(
+          (cell) => cell.tagName.toLowerCase() === "th",
+        );
+        blocks.push({ type: "table", rows, hasHeader });
+      }
+      return;
+    }
+    for (const child of elementChildren(element)) visit(child);
+  };
+
+  const root = document.documentElement;
+  if (root) {
+    for (const child of elementChildren(root)) visit(child);
+  }
+  return blocks;
+}
+
+export function documentBlockText(block: DocumentBlock): string {
+  if (block.type === "table") {
+    return block.rows.map((row) => row.join(" | ")).join("\n");
+  }
+  if (block.type === "list-item") {
+    return `${"  ".repeat(block.level)}${block.ordered ? "1." : "•"} ${block.text}`;
+  }
+  return block.text;
+}
+
+export function splitDocumentBlocksIntoSlides(
+  blocks: DocumentBlock[],
+  maxCharacters = 520,
+): DocumentBlock[][] {
+  const slides: DocumentBlock[][] = [];
+  let slide: DocumentBlock[] = [];
+  let length = 0;
+
+  const finishSlide = (): void => {
+    if (slide.length > 0) slides.push(slide);
+    slide = [];
+    length = 0;
+  };
+
+  for (const block of blocks) {
+    const blockLength = documentBlockText(block).length;
+    if (block.type === "heading" && slide.length > 0) finishSlide();
+    if (block.type === "paragraph" && blockLength > maxCharacters) {
+      let remaining = "";
+      for (const word of block.text.split(/\s+/).filter(Boolean)) {
+        if (word.length > maxCharacters) {
+          if (remaining) {
+            slide.push({ type: "paragraph", text: remaining });
+            length += remaining.length;
+            finishSlide();
+            remaining = "";
+          }
+          let wordOffset = 0;
+          if (slide.length > 0) {
+            const available = maxCharacters - length;
+            if (available > 0) {
+              slide.push({
+                type: "paragraph",
+                text: word.slice(0, available),
+              });
+              wordOffset = available;
+              finishSlide();
+            } else {
+              finishSlide();
+            }
+          }
+          for (
+            let offset = wordOffset;
+            offset < word.length;
+            offset += maxCharacters
+          ) {
+            slide.push({
+              type: "paragraph",
+              text: word.slice(offset, offset + maxCharacters),
+            });
+            finishSlide();
+          }
+          continue;
+        }
+        const next = remaining ? `${remaining} ${word}` : word;
+        if (next.length > maxCharacters - length && remaining) {
+          slide.push({ type: "paragraph", text: remaining });
+          length += remaining.length;
+          finishSlide();
+          remaining = word;
+        } else if (next.length > maxCharacters - length && slide.length > 0) {
+          finishSlide();
+          remaining = word;
+        } else {
+          remaining = next;
+        }
+      }
+      if (remaining) {
+        slide.push({ type: "paragraph", text: remaining });
+        length += remaining.length;
+      }
+      finishSlide();
+      continue;
+    }
+
+    if (block.type === "table" && blockLength > maxCharacters) {
+      if (slide.length > 0) finishSlide();
+      const [header, ...dataRows] = block.rows;
+      let rows = block.hasHeader && header ? [header] : [];
+      let rowsLength = rows.reduce(
+        (total, row) => total + row.join(" | ").length,
+        0,
+      );
+      for (const row of block.hasHeader ? dataRows : block.rows) {
+        const rowLength = row.join(" | ").length;
+        if (
+          rows.length > (block.hasHeader ? 1 : 0) &&
+          rowsLength + rowLength > maxCharacters
+        ) {
+          slide.push({
+            type: "table",
+            rows,
+            hasHeader: block.hasHeader,
+          });
+          finishSlide();
+          rows = block.hasHeader && header ? [header] : [];
+          rowsLength = rows.reduce(
+            (total, headerRow) => total + headerRow.join(" | ").length,
+            0,
+          );
+        }
+        rows.push(row);
+        rowsLength += rowLength;
+      }
+      if (rows.length > 0) {
+        slide.push({
+          type: "table",
+          rows,
+          hasHeader: block.hasHeader,
+        });
+        finishSlide();
+      }
+      continue;
+    }
+
+    if (slide.length > 0 && length + blockLength > maxCharacters) {
+      finishSlide();
+    }
+    slide.push(block);
+    length += blockLength;
+  }
+  finishSlide();
+  return slides;
 }
 
 function copyImageData(data: Uint8Array): ArrayBuffer {
@@ -135,6 +379,43 @@ export function extractPdfPageText(items: PdfTextItem[]): string {
   return text.replace(/[ \t]+\n/g, "\n").trim();
 }
 
+export function structurePlainText(text: string): TextDocumentBlock[] {
+  const blocks: TextDocumentBlock[] = [];
+  for (const rawLine of text.split(/\n+/)) {
+    const line = rawLine.trim();
+    if (!line) continue;
+    const listItem = /^([•●▪◦*-]|\d+[.)])\s+(.+)$/.exec(line);
+    if (listItem) {
+      blocks.push({
+        type: "list-item",
+        text: listItem[2],
+        level: Math.min(
+          Math.floor((rawLine.length - rawLine.trimStart().length) / 2),
+          5,
+        ),
+        ordered: /^\d/.test(listItem[1]),
+      });
+      continue;
+    }
+
+    const letters = line.match(/[A-Za-z]/g) ?? [];
+    if (
+      line.length <= 90 &&
+      letters.length >= 3 &&
+      letters.filter((character) => character === character.toUpperCase())
+        .length /
+        letters.length >=
+        0.85 &&
+      !/[.!?:;]$/.test(line)
+    ) {
+      blocks.push({ type: "heading", text: line, level: 1 });
+    } else {
+      blocks.push({ type: "paragraph", text: line });
+    }
+  }
+  return blocks;
+}
+
 export async function extractWordContent(
   file: Blob,
   fileName: string,
@@ -153,9 +434,9 @@ export async function extractWordContent(
       })),
     }),
   ]);
+  const blocks = parseWordHtml(htmlResult.value);
   const { default: JSZip } = await import("jszip");
   const archive = await JSZip.loadAsync(new Uint8Array(arrayBuffer));
-  const additionalText: string[] = [];
   const additionalFiles = Object.keys(archive.files).filter((path) =>
     /^word\/(?:header\d*|footer\d*|footnotes|endnotes|comments)\.xml$/i.test(
       path,
@@ -176,7 +457,11 @@ export async function extractWordContent(
           .join(""),
       )
       .filter((paragraph) => paragraph.trim());
-    if (paragraphs.length > 0) additionalText.push(...paragraphs);
+    if (paragraphs.length > 0) {
+      blocks.push(
+        ...paragraphs.map((text) => ({ type: "paragraph" as const, text })),
+      );
+    }
   }
   const images: ExtractedImage[] = [];
   const imagePattern =
@@ -198,8 +483,8 @@ export async function extractWordContent(
       );
     }
   }
-  const text = [textResult.value, ...additionalText]
-    .join("\n")
+  const blockText = blocks.map(documentBlockText).join("\n");
+  const text = (blockText || textResult.value)
     .replaceAll(String.fromCharCode(0), "")
     .trim();
   if (!text && images.length === 0) {
@@ -209,6 +494,16 @@ export async function extractWordContent(
   }
   return {
     text: text || "(No selectable text. Original images are included below.)",
+    blocks:
+      blocks.length > 0
+        ? blocks
+        : text
+            .split(/\n+/)
+            .filter((paragraph: string) => paragraph.trim())
+            .map((paragraph: string) => ({
+              type: "paragraph" as const,
+              text: paragraph,
+            })),
     images,
   };
 }
