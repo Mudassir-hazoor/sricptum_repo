@@ -37,7 +37,7 @@ const categoryIcons: Record<string, string> = {
     <title>Scriptorium — Document tools, with care</title>
   </head>
   <body>
-    <header class="topbar">
+    <header class="topbar" data-reveal>
       <a class="wordmark" href="#home" aria-label="Scriptorium home">
         <span class="brand-mark" aria-hidden="true">
           s
@@ -59,7 +59,7 @@ const categoryIcons: Record<string, string> = {
 
     <main id="home">
       <section class="hero" aria-labelledby="hero-title">
-        <div class="hero-copy">
+        <div class="hero-copy" data-reveal>
           <p class="eyebrow">
             <span class="eyebrow-dot"></span> A better place to get documents
             done
@@ -96,7 +96,7 @@ const categoryIcons: Record<string, string> = {
             </span>
           </div>
         </div>
-        <div class="hero-visual" aria-hidden="true">
+        <div class="hero-visual" aria-hidden="true" data-reveal>
           <div class="visual-glow"></div>
           <div class="visual-card document-back">
             <span class="doc-label">PRESENTATION</span>
@@ -147,7 +147,7 @@ const categoryIcons: Record<string, string> = {
         id="workspace"
         aria-labelledby="workspace-section-title"
       >
-        <div class="workspace-heading">
+        <div class="workspace-heading" data-reveal>
           <div>
             <p class="eyebrow section-eyebrow">THE SCRIPTORIUM WORKSPACE</p>
             <h2 id="workspace-section-title">What would you like to do?</h2>
@@ -161,7 +161,11 @@ const categoryIcons: Record<string, string> = {
         </div>
 
         <div class="workspace-shell">
-          <aside class="tool-sidebar" aria-label="Choose a document tool">
+          <aside
+            class="tool-sidebar"
+            aria-label="Choose a document tool"
+            data-reveal
+          >
             {TOOL_GROUPS.map((group) => (
               <section
                 class="tool-group"
@@ -201,7 +205,11 @@ const categoryIcons: Record<string, string> = {
             ))}
           </aside>
 
-          <section class="work-area" aria-labelledby="workspace-title">
+          <section
+            class="work-area"
+            aria-labelledby="workspace-title"
+            data-reveal
+          >
             <div class="work-heading">
               <div>
                 <p class="work-kicker">YOUR SELECTED TOOL</p>
@@ -359,7 +367,7 @@ const categoryIcons: Record<string, string> = {
         id="how-it-works"
         aria-labelledby="how-title"
       >
-        <div class="how-intro">
+        <div class="how-intro" data-reveal>
           <p class="eyebrow section-eyebrow">STRAIGHTFORWARD BY DESIGN</p>
           <h2 id="how-title">
             From file to finished.
@@ -371,8 +379,8 @@ const categoryIcons: Record<string, string> = {
             tool and get back to your work.
           </p>
         </div>
-        <div class="steps">
-          <article class="step">
+        <div class="steps" data-reveal-stagger>
+          <article class="step" data-reveal>
             <span class="step-number">01</span>
             <h3>Choose a tool</h3>
             <p>
@@ -380,7 +388,7 @@ const categoryIcons: Record<string, string> = {
               and limits are clearly listed.
             </p>
           </article>
-          <article class="step">
+          <article class="step" data-reveal>
             <span class="step-number">02</span>
             <h3>Add your document</h3>
             <p>
@@ -388,7 +396,7 @@ const categoryIcons: Record<string, string> = {
               throughout processing.
             </p>
           </article>
-          <article class="step">
+          <article class="step" data-reveal>
             <span class="step-number">03</span>
             <h3>Download the result</h3>
             <p>
@@ -403,6 +411,7 @@ const categoryIcons: Record<string, string> = {
         class="privacy-section"
         id="privacy"
         aria-labelledby="privacy-title"
+        data-reveal
       >
         <div class="privacy-lock" aria-hidden="true">
           <svg viewBox="0 0 24 24">
@@ -484,7 +493,17 @@ const categoryIcons: Record<string, string> = {
   body {
     margin: 0;
     min-width: 0;
+    overflow-x: clip;
     background: #fff;
+  }
+
+  img,
+  svg,
+  canvas,
+  video {
+    display: block;
+    max-width: 100%;
+    height: auto;
   }
 
   a {
@@ -510,17 +529,39 @@ const categoryIcons: Record<string, string> = {
     outline-offset: 3px;
   }
 
+  html.motion-ready [data-reveal] {
+    opacity: 0;
+    transform: translateY(14px);
+    transition:
+      opacity 420ms cubic-bezier(0.2, 0.7, 0.2, 1),
+      transform 420ms cubic-bezier(0.2, 0.7, 0.2, 1);
+  }
+
+  html.motion-ready [data-reveal].is-visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .steps[data-reveal-stagger] > [data-reveal]:nth-child(2) {
+    transition-delay: 65ms;
+  }
+
+  .steps[data-reveal-stagger] > [data-reveal]:nth-child(3) {
+    transition-delay: 130ms;
+  }
+
   .topbar,
   .footer {
     display: flex;
     align-items: center;
     max-width: 1280px;
     margin: 0 auto;
-    padding: 18px 56px;
+    padding: clamp(14px, 2vw, 18px) clamp(20px, 4vw, 56px);
   }
 
   .topbar {
     justify-content: space-between;
+    gap: 16px;
     min-height: 76px;
     background: #fff;
   }
@@ -550,10 +591,12 @@ const categoryIcons: Record<string, string> = {
 
   nav {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
-    gap: 34px;
+    justify-content: center;
+    gap: 14px 28px;
     color: #56665e;
-    font-size: 12px;
+    font-size: clamp(10px, 1.1vw, 12px);
   }
 
   nav a,
@@ -595,6 +638,12 @@ const categoryIcons: Record<string, string> = {
     background: var(--green-dark);
   }
 
+  .header-button:active,
+  .primary-button:active,
+  .convert-button:active:not(:disabled) {
+    transform: translateY(0) scale(0.98);
+  }
+
   .header-button svg,
   .primary-button svg,
   .convert-button svg,
@@ -610,19 +659,20 @@ const categoryIcons: Record<string, string> = {
 
   .hero {
     display: grid;
-    grid-template-columns: 1.08fr 0.92fr;
+    grid-template-columns: minmax(0, 1.08fr) minmax(280px, 0.92fr);
     align-items: center;
-    gap: 36px;
+    gap: clamp(20px, 3vw, 36px);
     max-width: 1280px;
     min-height: 498px;
     margin: 0 auto;
-    padding: 48px 56px 66px;
+    padding: clamp(28px, 4vw, 48px) clamp(20px, 4vw, 56px) clamp(36px, 5vw, 66px);
     overflow: hidden;
   }
 
   .hero-copy {
     position: relative;
     z-index: 1;
+    min-width: 0;
     padding: 4px 0 0;
   }
 
@@ -712,10 +762,10 @@ const categoryIcons: Record<string, string> = {
   .hero-proof {
     display: flex;
     flex-wrap: wrap;
-    gap: 14px 22px;
+    gap: 12px 18px;
     margin-top: 33px;
     color: #586860;
-    font-size: 10px;
+    font-size: clamp(9px, 1vw, 10px);
   }
 
   .proof-icon {
@@ -920,7 +970,7 @@ const categoryIcons: Record<string, string> = {
   }
 
   .workspace-section {
-    padding: 67px max(34px, calc((100% - 1150px) / 2)) 70px;
+    padding: clamp(44px, 5vw, 67px) clamp(15px, 3vw, 34px) clamp(46px, 7vw, 70px);
     border-top: 1px solid #edf0ed;
     background: var(--soft);
   }
@@ -971,7 +1021,7 @@ const categoryIcons: Record<string, string> = {
 
   .workspace-shell {
     display: grid;
-    grid-template-columns: 252px minmax(0, 1fr);
+    grid-template-columns: minmax(200px, 252px) minmax(0, 1fr);
     min-height: 675px;
     overflow: hidden;
     border: 1px solid #e5eae5;
@@ -1019,11 +1069,13 @@ const categoryIcons: Record<string, string> = {
     text-align: left;
     transition:
       background 130ms ease,
-      color 130ms ease;
+      color 130ms ease,
+      transform 130ms ease;
   }
 
   .tool-option:hover {
     background: #f0f4f0;
+    transform: translateX(2px);
   }
 
   .tool-option.selected {
@@ -1081,6 +1133,10 @@ const categoryIcons: Record<string, string> = {
     justify-content: space-between;
     gap: 12px;
     margin-bottom: 18px;
+  }
+
+  .work-heading > div {
+    min-width: 0;
   }
 
   .work-kicker {
@@ -1147,12 +1203,14 @@ const categoryIcons: Record<string, string> = {
     text-align: center;
     transition:
       background 140ms ease,
-      border-color 140ms ease;
+      border-color 140ms ease,
+      transform 140ms ease;
   }
 
   .drop-zone.dragging {
     border-color: #347b5c;
     background: #f0f7f0;
+    transform: translateY(-2px);
   }
 
   .upload-icon {
@@ -1200,12 +1258,17 @@ const categoryIcons: Record<string, string> = {
     font-weight: 650;
     transition:
       border-color 140ms ease,
-      background 140ms ease;
+      background 140ms ease,
+      transform 140ms ease;
   }
 
   .choose-button:hover {
     border-color: #acc8b0;
     background: #f8fbf8;
+  }
+
+  .choose-button:active {
+    transform: scale(0.98);
   }
 
   .drop-zone > .drop-support {
@@ -1262,7 +1325,6 @@ const categoryIcons: Record<string, string> = {
   .file-list li {
     display: flex;
     align-items: center;
-    justify-content: space-between;
     gap: 12px;
     min-width: 0;
     padding: 9px 10px;
@@ -1273,12 +1335,32 @@ const categoryIcons: Record<string, string> = {
     font-size: 9px;
   }
 
+  .file-list li.file-added {
+    animation: file-added 220ms ease-out both;
+  }
+
   .file-list li[draggable="true"] {
     cursor: grab;
   }
 
+  .file-order-hint {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    flex: 0 0 22px;
+    border-radius: 999px;
+    background: #edf4ee;
+    color: #426a56;
+    font-size: 8px;
+    font-weight: 700;
+  }
+
   .file-name {
+    min-width: 0;
     overflow: hidden;
+    flex: 1 1 auto;
     font-weight: 550;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -1287,6 +1369,44 @@ const categoryIcons: Record<string, string> = {
   .file-size {
     flex: 0 0 auto;
     color: #8c958f;
+  }
+
+  .file-actions {
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 4px;
+    margin-left: auto;
+    flex: 0 0 auto;
+  }
+
+  .file-actions button {
+    display: inline-grid;
+    place-items: center;
+    width: 20px;
+    height: 20px;
+    padding: 0;
+    border: 1px solid #dfe7df;
+    border-radius: 4px;
+    background: #fff;
+    color: #476d59;
+    cursor: pointer;
+    font-size: 11px;
+    font-weight: 700;
+    transition:
+      border-color 120ms ease,
+      background 120ms ease,
+      transform 120ms ease;
+  }
+
+  .file-actions button:hover:not(:disabled) {
+    border-color: #b6c9b7;
+    background: #f4f9f4;
+  }
+
+  .file-actions button:disabled {
+    cursor: default;
+    opacity: 0.45;
   }
 
   .tool-settings {
@@ -1409,6 +1529,7 @@ const categoryIcons: Record<string, string> = {
     border: 0;
     border-radius: 5px;
     background: #edf0ed;
+    transition: opacity 180ms ease;
   }
 
   .progress-area progress::-webkit-progress-bar {
@@ -1419,11 +1540,38 @@ const categoryIcons: Record<string, string> = {
   .progress-area progress::-webkit-progress-value {
     border-radius: 5px;
     background: #58916b;
+    transition: width 240ms ease-out;
   }
 
   .progress-area progress::-moz-progress-bar {
     border-radius: 5px;
     background: #58916b;
+    transition: width 240ms ease-out;
+  }
+
+  .file-stage[aria-busy="true"] .progress-area progress:not([value]) {
+    background: linear-gradient(
+      90deg,
+      #edf0ed 0%,
+      #edf0ed 35%,
+      #8ab698 50%,
+      #edf0ed 65%,
+      #edf0ed 100%
+    );
+    background-size: 200% 100%;
+    animation: progress-sweep 1.5s ease-in-out infinite;
+  }
+
+  .file-stage[aria-busy="true"]
+    .progress-area
+    progress:not([value])::-webkit-progress-bar {
+    background: transparent;
+  }
+
+  .file-stage[aria-busy="true"]
+    .progress-area
+    progress:not([value])::-moz-progress-bar {
+    background: transparent;
   }
 
   .progress-area span {
@@ -1447,6 +1595,10 @@ const categoryIcons: Record<string, string> = {
     color: #a54138;
   }
 
+  .workspace-status.feedback-in {
+    animation: feedback-in 200ms ease-out both;
+  }
+
   .result-card {
     display: flex;
     flex-wrap: wrap;
@@ -1457,6 +1609,10 @@ const categoryIcons: Record<string, string> = {
     border: 1px solid #dce9dc;
     border-radius: 5px;
     background: #f7fbf6;
+  }
+
+  .result-card.result-enter {
+    animation: result-enter 280ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
   }
 
   .result-check {
@@ -1517,12 +1673,12 @@ const categoryIcons: Record<string, string> = {
 
   .how-section {
     display: grid;
-    grid-template-columns: 0.95fr 1.05fr;
+    grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
     align-items: center;
-    gap: 70px;
+    gap: clamp(24px, 5vw, 70px);
     max-width: 1160px;
     margin: 0 auto;
-    padding: 82px 34px;
+    padding: clamp(53px, 7vw, 82px) clamp(20px, 4vw, 34px);
   }
 
   .how-intro h2 {
@@ -1541,7 +1697,7 @@ const categoryIcons: Record<string, string> = {
 
   .steps {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 15px;
   }
 
@@ -1722,10 +1878,6 @@ const categoryIcons: Record<string, string> = {
       font-size: 10px;
     }
 
-    nav a:nth-child(2) {
-      display: inline;
-    }
-
     .topbar .wordmark {
       gap: 7px;
       font-size: 16px;
@@ -1889,11 +2041,17 @@ const categoryIcons: Record<string, string> = {
       padding: 18px 13px 15px;
     }
 
+    .work-heading {
+      flex-direction: column;
+      align-items: stretch;
+    }
+
     .work-heading h3 {
       font-size: 20px;
     }
 
     .format-badge {
+      align-self: flex-start;
       padding: 6px;
       font-size: 6px;
     }
@@ -1986,10 +2144,6 @@ const categoryIcons: Record<string, string> = {
       font-size: 9px;
     }
 
-    nav a:nth-child(2) {
-      display: inline;
-    }
-
     .topbar .header-button {
       padding: 8px;
     }
@@ -2007,12 +2161,66 @@ const categoryIcons: Record<string, string> = {
     }
   }
 
+  @keyframes file-added {
+    from {
+      opacity: 0;
+      transform: translateY(5px);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes feedback-in {
+    from {
+      opacity: 0;
+      transform: translateY(3px);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes result-enter {
+    from {
+      opacity: 0;
+      transform: translateY(7px) scale(0.99);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+
+  @keyframes progress-sweep {
+    from {
+      background-position: 100% 0;
+    }
+
+    to {
+      background-position: -100% 0;
+    }
+  }
+
   @media (prefers-reduced-motion: reduce) {
+    html.motion-ready [data-reveal] {
+      opacity: 1 !important;
+      transform: none !important;
+      transition: none !important;
+    }
+
     *,
     *::before,
     *::after {
       scroll-behavior: auto !important;
       transition-duration: 0.01ms !important;
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
     }
   }
 </style>

@@ -337,46 +337,75 @@ export async function normalizeEmbeddedImage(
 }
 
 export function extractPdfPageText(items: PdfTextItem[]): string {
-  let text = "";
-  let previous: PdfTextItem | undefined;
+  const normalized = items
+    .map((item) => {
+      const transform = item.transform ?? [1, 0, 0, 1, 0, 0];
+      const x = transform[4] ?? 0;
+      const y = transform[5] ?? 0;
+      const text = item.str.replace(/\u00a0/g, " ").trim();
+      return {
+        ...item,
+        text,
+        x,
+        y,
+        height: item.height ?? 12,
+      };
+    })
+    .filter(({ text }) => text.length > 0);
 
-  for (const item of items) {
-    if (!item.str) continue;
+  if (normalized.length === 0) return "";
 
-    if (previous && item.transform && previous.transform) {
-      const currentX = item.transform[4] ?? 0;
-      const currentY = item.transform[5] ?? 0;
-      const previousX = previous.transform[4] ?? 0;
-      const previousY = previous.transform[5] ?? 0;
-      const lineTolerance = Math.max(
-        2,
-        Math.max(item.height ?? 0, previous.height ?? 0) * 0.25,
-      );
-      if (Math.abs(currentY - previousY) > lineTolerance) {
-        text = text.trimEnd() + "\n";
-      } else {
-        const previousEnd = previousX + (previous.width ?? 0);
-        const gap = currentX - previousEnd;
-        const spaceThreshold =
-          Math.max(item.height ?? 0, previous.height ?? 0) * 0.12;
-        if (
-          gap > spaceThreshold &&
-          !/\s$/.test(text) &&
-          !/^\s/.test(item.str)
-        ) {
-          text += " ";
-        }
+  normalized.sort((first, second) => {
+    const yDifference = (second.y ?? 0) - (first.y ?? 0);
+    if (Math.abs(yDifference) > 0.001) return yDifference;
+    return (first.x ?? 0) - (second.x ?? 0);
+  });
+
+  const lines: string[] = [];
+  let currentLine:
+    | {
+        y: number;
+        text: string;
+        lastX: number;
       }
-    } else if (text && !/\s$/.test(text) && !/^\s/.test(item.str)) {
-      text += " ";
+    | undefined;
+
+  for (const item of normalized) {
+    const lineTolerance = Math.max(2, item.height * 0.6);
+    const nextItemX = item.x ?? 0;
+    const nextItemEnd = nextItemX + (item.width ?? 0);
+
+    if (!currentLine || Math.abs(item.y - currentLine.y) > lineTolerance) {
+      if (currentLine) lines.push(currentLine.text.trimEnd());
+      currentLine = {
+        y: item.y,
+        text: item.text,
+        lastX: nextItemEnd,
+      };
+      continue;
     }
 
-    text += item.str;
-    if (item.hasEOL) text = text.trimEnd() + "\n";
-    previous = item;
+    const previousEnd = currentLine.lastX;
+    const gap = nextItemX - previousEnd;
+    const spaceThreshold = Math.max(2, item.height * 0.18);
+    if (
+      gap > spaceThreshold &&
+      !/\s$/.test(currentLine.text) &&
+      !/^\s/.test(item.text)
+    ) {
+      currentLine.text += " ";
+    }
+    currentLine.text += item.text;
+    currentLine.lastX = nextItemEnd;
   }
 
-  return text.replace(/[ \t]+\n/g, "\n").trim();
+  if (currentLine) lines.push(currentLine.text.trimEnd());
+
+  return lines
+    .join("\n")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
 }
 
 export function structurePlainText(text: string): TextDocumentBlock[] {

@@ -325,6 +325,39 @@ describe("document conversion helpers", () => {
     ).toBe("Quarterly results\nRevenue increased");
   });
 
+  it("orders PDF words by line position even when the source items arrive out of order", () => {
+    expect(
+      extractPdfPageText([
+        {
+          str: "second",
+          transform: [1, 0, 0, 1, 40, 660],
+          width: 36,
+          height: 12,
+        },
+        {
+          str: "line",
+          transform: [1, 0, 0, 1, 100, 660],
+          width: 24,
+          height: 12,
+          hasEOL: true,
+        },
+        {
+          str: "First",
+          transform: [1, 0, 0, 1, 40, 700],
+          width: 26,
+          height: 12,
+        },
+        {
+          str: "page",
+          transform: [1, 0, 0, 1, 90, 700],
+          width: 24,
+          height: 12,
+          hasEOL: true,
+        },
+      ]),
+    ).toBe("First page\nsecond line");
+  });
+
   it("reconstructs headings and list items from extracted PDF text", () => {
     expect(
       structurePlainText(

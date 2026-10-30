@@ -6,6 +6,9 @@ website does not upload documents or require an account.
 
 **Live website:** <https://mudassir-hazoor.github.io/sricptum_repo/>
 
+For the full architecture, source-file guide, conversion pipelines, limits,
+and maintenance notes, see [PROJECT_DOCUMENTATION.md](./PROJECT_DOCUMENTATION.md).
+
 ## Available tools
 
 - **PDF:** extract text into Word or PowerPoint, merge documents, extract

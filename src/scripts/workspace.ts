@@ -70,6 +70,7 @@ if (toolButtons.length > 0) {
   const compressionWarning = requireElement<HTMLInputElement>(
     "#compression-confirmation",
   );
+  const fileStage = requireElement<HTMLElement>(".file-stage");
   const pageRange = requireElement<HTMLInputElement>("#page-range");
   const workspaceTitle = requireElement<HTMLElement>("#workspace-title");
   const workspaceDescription = requireElement<HTMLElement>(
@@ -92,10 +93,22 @@ if (toolButtons.length > 0) {
   function setStatus(message: string, isError = false): void {
     status.textContent = message;
     status.classList.toggle("error", isError);
+    status.classList.remove("feedback-in");
+    if (message) {
+      requestAnimationFrame(() => {
+        if (status.textContent === message) {
+          status.classList.add("feedback-in");
+        }
+      });
+    }
   }
 
-  function setProgress(value: number, label: string): void {
-    progress.value = value;
+  function setProgress(value: number | null, label: string): void {
+    if (value === null) {
+      progress.removeAttribute("value");
+    } else {
+      progress.value = value;
+    }
     progressLabel.textContent = label;
   }
 
@@ -122,12 +135,37 @@ if (toolButtons.length > 0) {
     return element;
   }
 
+  function initializeEntranceAnimations(): void {
+    const targets = document.querySelectorAll<HTMLElement>("[data-reveal]");
+    if (
+      targets.length === 0 ||
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches ||
+      !("IntersectionObserver" in window)
+    ) {
+      return;
+    }
+
+    document.documentElement.classList.add("motion-ready");
+    const observer = new IntersectionObserver(
+      (entries, currentObserver) => {
+        entries.forEach((entry) => {
+          if (!entry.isIntersecting) return;
+          entry.target.classList.add("is-visible");
+          currentObserver.unobserve(entry.target);
+        });
+      },
+      { threshold: 0.12, rootMargin: "0px 0px -24px 0px" },
+    );
+    targets.forEach((target) => observer.observe(target));
+  }
+
   function renderFileList(): void {
     fileList.replaceChildren();
     if (selectedFiles.length === 0) return;
 
     for (const [index, file] of selectedFiles.entries()) {
       const row = document.createElement("li");
+      row.classList.add("file-added");
       const name = document.createElement("span");
       const size = document.createElement("span");
       const actions = document.createElement("span");
@@ -261,9 +299,16 @@ if (toolButtons.length > 0) {
       note.textContent = detail;
       description.append(note);
     }
-    container.append(label, description, downloadBlob(blob, fileName));
+    const download = downloadBlob(blob, fileName);
+    download.addEventListener("click", () => {
+      setStatus(
+        `Download started. Check your browser’s downloads for ${fileName}.`,
+      );
+    });
+    container.append(label, description, download);
     results.replaceChildren(container);
     results.hidden = false;
+    container.classList.add("result-enter");
     results.scrollIntoView({ behavior: "smooth", block: "nearest" });
     setStatus("Conversion complete. Your original file has not been changed.");
     setProgress(100, "Conversion complete");
@@ -314,7 +359,7 @@ if (toolButtons.length > 0) {
   async function extractPdfPages(
     file: File,
     maxPages: number,
-    report: (progressValue: number, label: string) => void,
+    report: (progressValue: number | null, label: string) => void,
   ): Promise<{
     pages: string[];
     blocks: DocumentBlock[][];
@@ -1578,7 +1623,7 @@ if (toolButtons.length > 0) {
   }
 
   async function convert(
-    report: (progressValue: number, label: string) => void,
+    report: (progressValue: number | null, label: string) => void,
   ): Promise<{ blob: Blob; name: string; detail?: string }> {
     const first = selectedFiles[0];
     if (!first) throw new Error("Choose a file to get started.");
@@ -1603,7 +1648,7 @@ if (toolButtons.length > 0) {
             blocks: blocks[index],
           },
         ]);
-        report(90, "Preparing your Word document");
+        report(null, "Preparing your Word document");
         return {
           blob: await createWordDocument(stem, sections),
           name: `${stem}-preserved.docx`,
@@ -1612,9 +1657,9 @@ if (toolButtons.length > 0) {
         };
       }
       case "word-to-pdf": {
-        report(35, "Reading Word document");
+        report(null, "Reading Word document");
         const content = await extractWordContent(first, first.name);
-        report(78, "Creating your PDF");
+        report(null, "Creating your PDF");
         return {
           blob: await createTextPdf(
             stem,
@@ -1626,9 +1671,9 @@ if (toolButtons.length > 0) {
         };
       }
       case "powerpoint-to-word": {
-        report(20, "Reading PowerPoint slides");
+        report(null, "Reading PowerPoint slides");
         const { slides, blocks, images } = await extractSlides(first);
-        report(83, "Preparing your Word document");
+        report(null, "Preparing your Word document");
         const sections: WordDocumentSection[] = slides.map((text, index) => ({
           heading: `Slide ${index + 1}`,
           text,
@@ -1648,7 +1693,7 @@ if (toolButtons.length > 0) {
         };
       }
       case "word-to-powerpoint": {
-        report(30, "Reading Word document");
+        report(null, "Reading Word document");
         const content = await extractWordContent(first, first.name);
         const contentSlides = splitDocumentBlocksIntoSlides(content.blocks);
         const slides = contentSlides.length;
@@ -1657,7 +1702,7 @@ if (toolButtons.length > 0) {
             `This conversion would create more than ${MAX_POWERPOINT_SLIDES} slides after preserving the extracted text and images.`,
           );
         }
-        report(78, `Creating ${slides} editable slides`);
+        report(null, `Creating ${slides} editable slides`);
         return {
           blob: await savePresentation(
             stem,
@@ -1671,14 +1716,14 @@ if (toolButtons.length > 0) {
         };
       }
       case "powerpoint-to-pdf": {
-        report(20, "Reading PowerPoint slides");
+        report(null, "Reading PowerPoint slides");
         const { slides, blocks, images } = await extractSlides(first);
         const sections = slides.map((text, index) => ({
           heading: `Slide ${index + 1}`,
           text,
           blocks: blocks[index],
         }));
-        report(82, "Creating a text-first PDF");
+        report(null, "Creating a text-first PDF");
         return {
           blob: await createTextPdf(stem, sections, images),
           name: `${stem}-text.pdf`,
@@ -1707,7 +1752,7 @@ if (toolButtons.length > 0) {
             `The editable text requires ${outputSlideCount} slides, above the ${MAX_POWERPOINT_SLIDES}-slide limit. Convert fewer pages at a time.`,
           );
         }
-        report(82, `Creating ${outputSlideCount} editable slides`);
+        report(null, `Creating ${outputSlideCount} editable slides`);
         return {
           blob: await savePresentation(
             stem,
@@ -1766,7 +1811,7 @@ if (toolButtons.length > 0) {
               height: viewport.height,
             });
           }
-          report(90, "Saving the compressed PDF");
+          report(null, "Saving the compressed PDF");
           const bytes = Uint8Array.from(
             await output.save({ useObjectStreams: true }),
           ).buffer;
@@ -1802,7 +1847,7 @@ if (toolButtons.length > 0) {
           const pages = await output.copyPages(source, source.getPageIndices());
           pages.forEach((page) => output.addPage(page));
         }
-        report(90, "Saving your merged PDF");
+        report(null, "Saving your merged PDF");
         const bytes = Uint8Array.from(await output.save()).buffer;
         const blob = new Blob([bytes], { type: "application/pdf" });
         return {
@@ -1827,7 +1872,7 @@ if (toolButtons.length > 0) {
           pages.map((pageNumber) => pageNumber - 1),
         );
         selected.forEach((page) => output.addPage(page));
-        report(90, "Saving the selected pages");
+        report(null, "Saving the selected pages");
         return {
           blob: new Blob([Uint8Array.from(await output.save()).buffer], {
             type: "application/pdf",
@@ -1884,7 +1929,7 @@ if (toolButtons.length > 0) {
             bitmap.close();
           }
         }
-        report(90, "Saving your image PDF");
+        report(null, "Saving your image PDF");
         return {
           blob: new Blob([Uint8Array.from(await output.save()).buffer], {
             type: "application/pdf",
@@ -1929,7 +1974,7 @@ if (toolButtons.length > 0) {
         } finally {
           await close();
         }
-        report(90, "Packing the page images");
+        report(null, "Packing the page images");
         return {
           blob: await archive.generateAsync({ type: "blob" }),
           name: `${stem}-pages.zip`,
@@ -1964,11 +2009,12 @@ if (toolButtons.length > 0) {
       .forEach((button) => (button.disabled = true));
     uploadAction.disabled = true;
     fileInput.disabled = true;
-    setProgress(1, "Starting conversion");
+    fileStage.setAttribute("aria-busy", "true");
+    setProgress(null, "Starting conversion");
     setStatus("Your file is being processed in this browser.");
     try {
       const converted = await convert(setProgress);
-      setProgress(95, "Preparing your download");
+      setProgress(null, "Preparing your download");
       finish(converted.blob, converted.name, converted.detail);
     } catch (error) {
       const message =
@@ -1976,8 +2022,9 @@ if (toolButtons.length > 0) {
           ? error.message
           : "The conversion could not be completed.";
       setStatus(message, true);
-      setProgress(0, "Conversion not completed");
+      setProgress(null, "Conversion not completed");
     } finally {
+      fileStage.removeAttribute("aria-busy");
       isConverting = false;
       runButton.disabled = false;
       toolButtons.forEach((button) => (button.disabled = false));
@@ -1993,6 +2040,7 @@ if (toolButtons.length > 0) {
     });
   });
   dropZone.addEventListener("click", (event) => {
+    if (isConverting) return;
     if (
       event.target === fileInput ||
       (event.target as HTMLElement).closest("button")
@@ -2015,16 +2063,30 @@ if (toolButtons.length > 0) {
   });
   runButton.addEventListener("click", () => void runConversion());
 
-  dropZone.addEventListener("dragover", (event) => {
+  dropZone.addEventListener("dragenter", (event) => {
+    if (isConverting) return;
     event.preventDefault();
+    if (event.dataTransfer) {
+      event.dataTransfer.dropEffect = "copy";
+    }
+    dropZone.classList.add("dragging");
+  });
+  dropZone.addEventListener("dragover", (event) => {
+    if (isConverting) return;
+    event.preventDefault();
+    if (event.dataTransfer) {
+      event.dataTransfer.dropEffect = "copy";
+    }
     dropZone.classList.add("dragging");
   });
   dropZone.addEventListener("dragleave", (event) => {
+    if (isConverting) return;
     if (!dropZone.contains(event.relatedTarget as Node | null)) {
       dropZone.classList.remove("dragging");
     }
   });
   dropZone.addEventListener("drop", (event) => {
+    if (isConverting) return;
     event.preventDefault();
     dropZone.classList.remove("dragging");
     if (event.dataTransfer?.files) chooseFiles(event.dataTransfer.files);
@@ -2059,5 +2121,6 @@ if (toolButtons.length > 0) {
     );
   });
 
+  initializeEntranceAnimations();
   renderOperation(activeOperation);
 }
